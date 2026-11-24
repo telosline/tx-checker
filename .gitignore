@@ -1,0 +1,27 @@
+# secrets
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+
+# python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# local outputs
+*.out.csv
+output/
+
+# editors and os
+.vscode/
+.idea/
+.DS_Store
+
