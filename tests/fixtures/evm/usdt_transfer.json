@@ -1,0 +1,117 @@
+{
+  "_meta": {
+    "description": "Real Ethereum mainnet transaction (usdt_transfer).",
+    "chain_id": 1,
+    "tx_hash": "0x73ee5f2594e154c73590ba8339e69a553b14ccce29b5a976b2725885cf86e185",
+    "derived": false,
+    "trimmed": [
+      "tx.input kept to the 4-byte selector",
+      "block.transactions emptied",
+      "eth_getCode result kept to its first 4 bytes (only emptiness matters)",
+      "block.withdrawals removed"
+    ]
+  },
+  "responses": {
+    "eth_getTransactionByHash": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": {
+        "blockHash": "0x95b198e154acbfc64109dfd22d8224fe927fd8dfdedfae01587674482ba4baf3",
+        "blockNumber": "0x112a880",
+        "blockTimestamp": "0x64ea268f",
+        "from": "0x28c6c06298d514db089934071355e5743bf21d60",
+        "gas": "0x35d14",
+        "gasPrice": "0x585e32239",
+        "maxFeePerGas": "0x17bfac7c00",
+        "maxPriorityFeePerGas": "0x77359400",
+        "hash": "0x73ee5f2594e154c73590ba8339e69a553b14ccce29b5a976b2725885cf86e185",
+        "input": "0xa9059cbb",
+        "nonce": "0x73e940",
+        "to": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+        "transactionIndex": "0x4",
+        "value": "0x0",
+        "type": "0x2",
+        "accessList": [],
+        "chainId": "0x1",
+        "v": "0x1",
+        "r": "0xfedf01c9a13953d127ebcb4437fcd8d55a941e5252a9b450a7b031cfa4e25a17",
+        "s": "0x3242ca75389055fd2425c07279dbcd80d7491ac9d67cea78881224de5001dca8",
+        "yParity": "0x1"
+      }
+    },
+    "eth_getTransactionReceipt": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": {
+        "blockHash": "0x95b198e154acbfc64109dfd22d8224fe927fd8dfdedfae01587674482ba4baf3",
+        "blockNumber": "0x112a880",
+        "contractAddress": null,
+        "cumulativeGasUsed": "0x2d6b19",
+        "effectiveGasPrice": "0x585e32239",
+        "from": "0x28c6c06298d514db089934071355e5743bf21d60",
+        "gasUsed": "0xb41d",
+        "logs": [
+          {
+            "address": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+            "topics": [
+              "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+              "0x00000000000000000000000028c6c06298d514db089934071355e5743bf21d60",
+              "0x0000000000000000000000007e7bdf8b9bc6bdeeb936e694b3e721424c364e90"
+            ],
+            "data": "0x000000000000000000000000000000000000000000000000000000001417ac4f",
+            "blockNumber": "0x112a880",
+            "transactionHash": "0x73ee5f2594e154c73590ba8339e69a553b14ccce29b5a976b2725885cf86e185",
+            "transactionIndex": "0x4",
+            "blockHash": "0x95b198e154acbfc64109dfd22d8224fe927fd8dfdedfae01587674482ba4baf3",
+            "blockTimestamp": "0x64ea268f",
+            "logIndex": "0x34",
+            "removed": false
+          }
+        ],
+        "logsBloom": "0x00000000000004000000000000000000000000000000000000000000000000000000000000000000000001000000010000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002000010000000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000080000000000000004000000000000000020000000000000002000000000000000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000",
+        "status": "0x1",
+        "to": "0xdac17f958d2ee523a2206206994597c13d831ec7",
+        "transactionHash": "0x73ee5f2594e154c73590ba8339e69a553b14ccce29b5a976b2725885cf86e185",
+        "transactionIndex": "0x4",
+        "type": "0x2"
+      }
+    },
+    "eth_blockNumber": {
+      "jsonrpc": "2.0",
+      "id": 83,
+      "result": "0x1942cc5"
+    },
+    "eth_getBlockByNumber": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": {
+        "baseFeePerGas": "0x50ead8e39",
+        "difficulty": "0x0",
+        "extraData": "0x496c6c756d696e61746520446d6f63726174697a6520447374726962757465",
+        "gasLimit": "0x1c9c380",
+        "gasUsed": "0xf7e9ab",
+        "hash": "0x95b198e154acbfc64109dfd22d8224fe927fd8dfdedfae01587674482ba4baf3",
+        "logsBloom": "0x53f146f2484e1cb4b24d5a028329290bd702c80fe8465d9e55e900682e28809f405df83fd48d530900908f3c62de69000a530db688092c03d9406056852a0152220084ec4f8daa3c2c226e9878b08578163190e80b482ad30604c3649c25002037100c2086aaa3291c0407418431ebaa851804a6212996a206840875360bd84d2123065273780b9d04e4950c029a40d3e062b2697b048e4f3629824234ba00318a680d70eab6a9d740e38de89394d492c4c2ad6424bac19d4bcf08ca4044435aca49069e6907893082841ca20446b2220f4053121e7cc4b8cb84095f1a32320e105a20c821f675418c0d13308a896040d67550322ac88444e20080b364670401",
+        "miner": "0xdafea492d9c6733ae3d56b7ed1adb60692c98bc5",
+        "mixHash": "0x8b14d8532c673877dcc735caf93392bd05603456b7745fc3f012a3e3b156acfa",
+        "nonce": "0x0000000000000000",
+        "number": "0x112a880",
+        "parentHash": "0x198723e0ddf20153951c6304093cbd97fd306c5db03287c5586c0430a986080d",
+        "receiptsRoot": "0xd925652022fa6da2ca5b9781ab2fd50cb05d3b4741a327f52322e2b7917d3a2f",
+        "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+        "size": "0x469a6",
+        "stateRoot": "0x08b7443c83a93d4711f5c63e738c27c54a932522405b37b4ca7868a944105deb",
+        "timestamp": "0x64ea268f",
+        "transactions": [],
+        "transactionsRoot": "0x97dd0200249a35da2c73b366612c2d9c3d112e83ef5e0277cded1352c66628ba",
+        "uncles": [],
+        "withdrawalsRoot": "0x5362ee94b61e8cef92bf61353e62744b4fe6d1f2482aade614054527e6d5de7d"
+      }
+    },
+    "eth_getCode": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": "0x60606040"
+    }
+  }
+}

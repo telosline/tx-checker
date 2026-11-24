@@ -2,6 +2,7 @@ import re
 from dataclasses import dataclass
 from urllib.parse import urlparse
 
+from tx_checker.config import EXPLORER_HOSTS
 from tx_checker.models import Network
 
 _HEX = "0-9a-fA-F"
@@ -12,12 +13,6 @@ _HASH_RE = re.compile(rf"(?<![{_HEX}])(0[xX])?([{_HEX}]{{64}})(?![{_HEX}])")
 _EVM_ADDRESS_RE = re.compile(rf"(?<![{_HEX}])(?:0[xX])?[{_HEX}]{{40}}(?![{_HEX}])")
 # Format check only: base58, starts with T, 34 chars. The checksum is not verified.
 _TRON_ADDRESS_RE = re.compile(rf"(?<![{_BASE58}])T[{_BASE58}]{{33}}(?![{_BASE58}])")
-
-# Hosts that tell us the network. Only mainnet Etherscan implies chain 1.
-_EXPLORER_HOSTS: dict[str, tuple[Network, int | None]] = {
-    "etherscan.io": (Network.EVM, 1),
-    "tronscan.org": (Network.TRON, None),
-}
 
 MSG_EMPTY = "Please paste a transaction hash or an explorer link."
 MSG_ADDRESS = (
@@ -41,6 +36,8 @@ class Detection:
     tx_hash: str | None = None
     guessed: bool = False
     chain_id: int | None = None
+    # True for an EVM link from an explorer we do not know: the chain is not confirmed.
+    chain_unconfirmed: bool = False
     error: str | None = None
 
     @property
@@ -61,11 +58,11 @@ def detect(raw: str, network: Network | None = None) -> Detection:
 
     hint, chain_id = _explorer_hint(text) if is_url else (None, None)
     effective = network if network is not None else hint
-    return _resolve(match.group(1) is not None, match.group(2), effective, chain_id)
+    return _resolve(match.group(1) is not None, match.group(2), effective, chain_id, is_url)
 
 
 def _resolve(
-    prefixed: bool, digits: str, network: Network | None, chain_id: int | None
+    prefixed: bool, digits: str, network: Network | None, chain_id: int | None, from_url: bool
 ) -> Detection:
     digits = digits.lower()
     if network is Network.TRON:
@@ -73,7 +70,12 @@ def _resolve(
             return _invalid(MSG_TRON_PREFIX)
         return Detection(network=Network.TRON, tx_hash=digits)
     if network is Network.EVM or prefixed:
-        return Detection(network=Network.EVM, tx_hash=f"0x{digits}", chain_id=chain_id)
+        return Detection(
+            network=Network.EVM,
+            tx_hash=f"0x{digits}",
+            chain_id=chain_id,
+            chain_unconfirmed=from_url and chain_id is None,
+        )
     # Bare 64 hex with no hint: TRON first, the caller may retry as EVM.
     return Detection(network=Network.TRON, tx_hash=digits, guessed=True)
 
@@ -88,7 +90,7 @@ def _explorer_hint(text: str) -> tuple[Network | None, int | None]:
     except ValueError:
         return None, None
     host = host.removeprefix("www.")
-    return _EXPLORER_HOSTS.get(host, (None, None))
+    return EXPLORER_HOSTS.get(host, (None, None))
 
 
 def _explain_invalid(text: str, is_url: bool) -> str:

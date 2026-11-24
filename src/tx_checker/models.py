@@ -34,6 +34,7 @@ class WarningCode(StrEnum):
     UNKNOWN_TOKEN = "unknown_token"
     LOW_CONFIRMATIONS = "low_confirmations"
     NETWORK_GUESSED = "network_guessed"
+    NETWORK_UNCONFIRMED = "network_unconfirmed"
     STALE_PENDING = "stale_pending"
 
 

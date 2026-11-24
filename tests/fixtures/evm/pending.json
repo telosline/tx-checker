@@ -1,0 +1,37 @@
+{
+  "_meta": {
+    "description": "Derived: the ETH transfer fixture with blockHash, blockNumber, transactionIndex and blockTimestamp set to null.",
+    "chain_id": 1,
+    "tx_hash": "0x1d5807ff7c727bb1a1f69b7561622118186900eb84f3fa494d17dfc8f2e2d1b0",
+    "derived": true
+  },
+  "responses": {
+    "eth_getTransactionByHash": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": {
+        "blockHash": null,
+        "blockNumber": null,
+        "blockTimestamp": null,
+        "from": "0x93aa6246c8a067907ff6ebdcd5e96ea2cfb625fe",
+        "gas": "0x5208",
+        "gasPrice": "0x813893ee00",
+        "maxFeePerGas": "0x813893ee00",
+        "maxPriorityFeePerGas": "0x813893ee00",
+        "hash": "0x1d5807ff7c727bb1a1f69b7561622118186900eb84f3fa494d17dfc8f2e2d1b0",
+        "input": "0x",
+        "nonce": "0x3",
+        "to": "0x59302f15c6c604d3f43d2902337444388119a1d1",
+        "transactionIndex": null,
+        "value": "0x11c37937e080000",
+        "type": "0x2",
+        "accessList": [],
+        "chainId": "0x1",
+        "v": "0x0",
+        "r": "0x3652aa1da1cfed4f152b1c5661334bf2dbb8398fd20ee4ff59c33448a5c192d1",
+        "s": "0x2965d1f91e3f40c26f02a8ce71026769fa602807c95f8c8222b0940b07613cd7",
+        "yParity": "0x0"
+      }
+    }
+  }
+}

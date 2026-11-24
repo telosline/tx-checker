@@ -77,10 +77,36 @@ def test_etherscan_url_without_prefix_is_still_evm() -> None:
     assert result.tx_hash == EVM_HASH
 
 
-def test_other_explorer_url_does_not_infer_chain() -> None:
-    result = detect(f"https://sepolia.etherscan.io/tx/{EVM_HASH}")
+@pytest.mark.parametrize(
+    ("host", "chain_id"),
+    [
+        ("etherscan.io", 1),
+        ("sepolia.etherscan.io", 11155111),
+        ("bscscan.com", 56),
+        ("polygonscan.com", 137),
+        ("arbiscan.io", 42161),
+        ("optimistic.etherscan.io", 10),
+        ("basescan.org", 8453),
+    ],
+)
+def test_known_explorer_maps_to_chain(host: str, chain_id: int) -> None:
+    result = detect(f"https://{host}/tx/{EVM_HASH}")
+    assert result.network is Network.EVM
+    assert result.chain_id == chain_id
+    assert not result.chain_unconfirmed
+
+
+def test_unknown_explorer_link_is_unconfirmed() -> None:
+    result = detect(f"https://scan.example.org/tx/{EVM_HASH}")
     assert result.network is Network.EVM
     assert result.chain_id is None
+    assert result.chain_unconfirmed
+
+
+def test_bare_evm_hash_is_not_unconfirmed() -> None:
+    result = detect(EVM_HASH)
+    assert result.chain_id is None
+    assert not result.chain_unconfirmed
 
 
 def test_unknown_host_with_bare_hash_is_a_guess() -> None:

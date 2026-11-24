@@ -1,0 +1,15 @@
+{
+  "_meta": {
+    "description": "Real response for a hash that does not exist.",
+    "chain_id": 1,
+    "tx_hash": "0x5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e",
+    "derived": false
+  },
+  "responses": {
+    "eth_getTransactionByHash": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": null
+    }
+  }
+}
