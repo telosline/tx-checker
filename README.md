@@ -2,6 +2,10 @@
 
 Check a crypto transaction by its hash (EVM chains and TRON) and get a plain-language explanation for a support agent and a ready-to-send message for the client.
 
+Live demo: https://tx-checker.streamlit.app/
+
+The demo runs on Streamlit Community Cloud's free tier and may sleep after a period without visits. If you see a "wake up" button, click it and wait about 30 seconds.
+
 ![The web demo on a desktop screen: a successful, fully confirmed USDT transfer on TRON](docs/screenshots/pc1.png)
 
 ## Why this exists
