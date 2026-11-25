@@ -16,6 +16,8 @@ class Chain:
     explorer_host: str
     # Example values only. Every exchange and payment provider sets its own.
     required_confirmations: int
+    # Whether the free Etherscan plan serves this chain. The public demo offers only these.
+    free_tier: bool = True
 
     def tx_url(self, tx_hash: str) -> str:
         return f"https://{self.explorer_host}/tx/{tx_hash}"
@@ -26,13 +28,28 @@ CHAINS: dict[int, Chain] = {
     for chain in (
         Chain(1, "Ethereum", "ETH", "etherscan.io", 12),
         Chain(11155111, "Sepolia (testnet)", "ETH", "sepolia.etherscan.io", 12),
-        Chain(56, "BNB Smart Chain", "BNB", "bscscan.com", 15),
+        Chain(56, "BNB Smart Chain", "BNB", "bscscan.com", 15, free_tier=False),
         Chain(137, "Polygon", "POL", "polygonscan.com", 128),
         Chain(42161, "Arbitrum One", "ETH", "arbiscan.io", 12),
-        Chain(10, "OP Mainnet", "ETH", "optimistic.etherscan.io", 12),
-        Chain(8453, "Base", "ETH", "basescan.org", 12),
+        Chain(10, "OP Mainnet", "ETH", "optimistic.etherscan.io", 12, free_tier=False),
+        Chain(8453, "Base", "ETH", "basescan.org", 12, free_tier=False),
     )
 }
+
+DEMO_CHAIN_IDS: tuple[int, ...] = tuple(c.chain_id for c in CHAINS.values() if c.free_tier)
+
+# Public demo protection. Example values, tuned for free API keys.
+SESSION_LOOKUPS_PER_MINUTE = 10
+# Provider calls, counted separately for Etherscan and Tronscan so one cannot starve the other.
+PROVIDER_CALLS_PER_MINUTE = 60
+PROVIDER_CALLS_PER_DAY = 5000
+# Worst case per lookup. A mined EVM transaction needs up to five Etherscan calls.
+EVM_CALLS_PER_LOOKUP = 5
+TRON_CALLS_PER_LOOKUP = 1
+CACHE_SECONDS_SETTLED = 600
+CACHE_SECONDS_WAITING = 60
+CACHE_SECONDS_NOT_FOUND = 30
+CACHE_MAX_ENTRIES = 500
 
 # Explorer host -> (network, chain id). A known host tells us the network and the chain.
 EXPLORER_HOSTS: dict[str, tuple[Network, int | None]] = {
