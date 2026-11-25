@@ -356,7 +356,9 @@ def test_lookalike_is_also_flagged_on_a_failed_attempt() -> None:
 
 def test_legacy_usdc_is_shown_as_legacy_with_an_info_warning() -> None:
     legacy = "TEkxiTehnzSmSe2XqrBj4w32RUN966rdz8"
-    assert TRON_TOKENS[legacy] == Token("USDC (legacy)", 6, legacy=True, explorer_symbol="USDCOLD")
+    assert TRON_TOKENS[legacy] == Token(
+        "USDC (legacy)", 6, legacy=True, explorer_symbol="USDCOLD", asset="USDC"
+    )
     for claimed in ("USDC", "USDCOLD"):
         info = with_transfer(
             "usdt_transfer", contract_address=legacy, symbol=claimed, amount_str="13607896"
