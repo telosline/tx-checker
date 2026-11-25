@@ -112,6 +112,7 @@ def test_not_found_on_both_networks_says_both_were_checked(routes: Routes) -> No
     assert "TRON" in report.message
     assert "Ethereum" in report.message
     assert "both" in report.message.lower()
+    assert report.networks_checked == ["TRON", "Ethereum"]
     assert WarningCode.NETWORK_GUESSED not in codes(report)
     assert routes.tron.call_count == 1
     assert routes.evm.call_count == 1
@@ -141,6 +142,7 @@ def test_prefixed_hash_not_found_on_evm(routes: Routes) -> None:
     assert report.chain_id == 1
     assert report.explorer_url == f"https://etherscan.io/tx/0x{MISSING_HASH}"
     assert report.message is None
+    assert report.networks_checked == ["Ethereum"]
     assert routes.tron.call_count == 0
 
 
@@ -158,6 +160,7 @@ def test_forced_tron_does_not_fall_back(routes: Routes) -> None:
     assert report.status is Status.NOT_FOUND
     assert report.network is Network.TRON
     assert report.message is None
+    assert report.networks_checked == ["TRON"]
     assert routes.evm.call_count == 0
 
 
@@ -339,6 +342,7 @@ def test_missing_etherscan_key_softens_only_the_fallback(
     assert report.message == (
         "Not found on TRON. Ethereum was not checked because no Etherscan key is configured."
     )
+    assert report.networks_checked == ["TRON"]
     assert routes.tron.call_count == 1
     assert routes.evm.call_count == 0
 

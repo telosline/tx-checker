@@ -95,6 +95,7 @@ def _check_tron(detection: Detection, required: int | None, clients: _Clients) -
         network=Network.TRON,
         chain_name=TRON_NAME,
         explorer_url=tron_tx_url(tx_hash),
+        networks_checked=[TRON_NAME],
     )
     if not detection.guessed:
         return not_found
@@ -112,6 +113,7 @@ def _check_tron(detection: Detection, required: int | None, clients: _Clients) -
         return not_found
     if evm_report.status is Status.NOT_FOUND:
         not_found.message = f"Not found on {TRON_NAME} or on {chain.name}. Both were checked."
+        not_found.networks_checked = [TRON_NAME, chain.name]
         return not_found
     if evm_report.status is Status.PROVIDER_ERROR:
         evm_report.message = f"Not found on {TRON_NAME}. The {chain.name} check failed: " + str(
@@ -168,6 +170,7 @@ def _lookup_evm(tx_hash: str, chain: Chain, required: int | None, clients: _Clie
             chain_id=chain.chain_id,
             chain_name=chain.name,
             explorer_url=chain.tx_url(tx_hash),
+            networks_checked=[chain.name],
         )
     return analyze_evm(raw, chain, required)
 

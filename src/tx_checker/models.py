@@ -93,6 +93,8 @@ class TxReport:
     explorer_url: str | None = None
     failure_reason: FailureReason | None = None
     message: str | None = None
+    # Networks that were looked at, set for NOT_FOUND so the texts can say where we searched.
+    networks_checked: list[str] = field(default_factory=list)
     block_number: int | None = None
     timestamp: datetime | None = None
     confirmations: int | None = None
