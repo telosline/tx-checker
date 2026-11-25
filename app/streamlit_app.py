@@ -11,6 +11,7 @@ from tx_checker.explain.explain import explain, short_address
 from tx_checker.guard import Outcome, SharedGuard, guarded_check, new_session_window
 from tx_checker.models import (
     EvmFee,
+    FailureReason,
     Network,
     Status,
     TokenTransfer,
@@ -56,12 +57,19 @@ MSG_BUSY = "The demo is busy right now. Please try again in a minute."
 MSG_NO_KEY = "The demo is not configured: an API key is missing."
 MSG_ERROR = "Something went wrong. Please try again later."
 
-BADGES = {
-    Status.FAILED: ("Failed", "red"),
-    Status.PENDING: ("Pending", "orange"),
+FAILURE_PHRASES = {
+    FailureReason.OUT_OF_GAS: "likely out of gas",
+    FailureReason.REVERTED: "likely rejected by the contract (revert)",
+    FailureReason.OUT_OF_ENERGY: "out of energy",
+    FailureReason.FEE_LIMIT_EXCEEDED: "fee limit exceeded",
+    FailureReason.OTHER: "other reason",
+    FailureReason.UNKNOWN: "unknown reason",
+}
+HEADLINES = {
+    Status.PENDING: ("Pending: not in a block yet", "orange"),
     Status.NOT_FOUND: ("Not found", "gray"),
     Status.INVALID_INPUT: ("Invalid input", "red"),
-    Status.PROVIDER_ERROR: ("Service unavailable", "red"),
+    Status.PROVIDER_ERROR: ("Service temporarily unavailable", "red"),
 }
 
 
@@ -132,28 +140,48 @@ def amount_text(transfer: TokenTransfer) -> str:
     return f"{plain(transfer.amount)} {transfer.token_symbol}"
 
 
-def badge_for(report: TxReport) -> tuple[str, str]:
+def headline(report: TxReport) -> tuple[str, str]:
+    """The big status line: what happened and, for a failure, the likely reason."""
     if report.status is Status.SUCCESS:
         if report.is_final:
-            return "Success, fully confirmed", "green"
-        return "Success, waiting for confirmations", "orange"
-    return BADGES[report.status]
+            return "Success: fully confirmed", "green"
+        return "Success: waiting for confirmations", "orange"
+    if report.status is Status.FAILED:
+        phrase = FAILURE_PHRASES.get(report.failure_reason, "unknown reason")  # type: ignore[arg-type]
+        return f"Failed: {phrase}", "red"
+    return HEADLINES[report.status]
+
+
+def confirmations_text(report: TxReport) -> str | None:
+    if report.status is Status.PENDING:
+        return "Not in a block yet"
+    if report.confirmations is None:
+        return None
+    count = f"{report.confirmations:,}"
+    if report.required_confirmations is None:
+        return count
+    if report.confirmations >= report.required_confirmations:
+        return f"Final ({count})"
+    return f"{count} of {report.required_confirmations:,}"
+
+
+def fee_text(report: TxReport) -> str | None:
+    match report.fee:
+        case EvmFee(fee_native=paid) | TronFee(fee_total_trx=paid):
+            return f"{plain(paid)} {report.native_symbol}"
+    return None
+
+
+def symbol_label(transfer: TokenTransfer) -> str:
+    if transfer.token_symbol is None:
+        return "unknown token"
+    return transfer.token_symbol.replace(" (legacy)", ", legacy")
 
 
 def key_facts(report: TxReport) -> list[tuple[str, str]]:
     facts = [("Network", report.chain_name or "")]
-    if report.status is Status.PENDING:
-        facts.append(("Confirmations", "Not in a block yet"))
-    elif report.confirmations is not None:
-        done = report.status is Status.SUCCESS and report.is_final
-        facts.append(
-            (
-                "Confirmations",
-                "Fully confirmed"
-                if done
-                else f"{report.confirmations} of {report.required_confirmations}",
-            )
-        )
+    if (confirmations := confirmations_text(report)) is not None:
+        facts.append(("Confirmations", confirmations))
     moved = [amount_text(t) for t in report.token_transfers]
     if report.native_amount and report.native_amount > 0:
         moved.append(f"{plain(report.native_amount)} {report.native_symbol}")
@@ -162,12 +190,29 @@ def key_facts(report: TxReport) -> list[tuple[str, str]]:
     tried = [amount_text(t) for t in report.attempted_transfers]
     if tried:
         facts.append(("Tried to send (not executed)", ", ".join(tried)))
+    if (fee := fee_text(report)) is not None:
+        facts.append(("Fee", fee))
     if report.timestamp is not None:
         facts.append(("Time (UTC)", report.timestamp.strftime("%Y-%m-%d %H:%M")))
     if report.block_number is not None:
-        facts.append(("Block", str(report.block_number)))
+        facts.append(("Block", f"{report.block_number:,}"))
     facts.append(("From", short_address(report.from_address)))
-    facts.append(("To", short_address(report.to_address)))
+    facts.extend(destination_facts(report))
+    return facts
+
+
+def destination_facts(report: TxReport) -> list[tuple[str, str]]:
+    """For a token transfer the transaction goes to the token contract, not to the recipient."""
+    transfers = report.token_transfers or report.attempted_transfers
+    to = report.to_address
+    contract = next((t for t in transfers if to and t.token_contract.lower() == to.lower()), None)
+    facts = [
+        (f"Token contract ({symbol_label(contract)})" if contract else "To", short_address(to))
+    ]
+    if transfers:
+        recipients = ", ".join(dict.fromkeys(short_address(t.to_address) for t in transfers))
+        label = "Recipient" if report.token_transfers else "Intended recipient"
+        facts.append((label, recipients))
     return facts
 
 
@@ -213,16 +258,19 @@ def show_facts(report: TxReport) -> None:
             column.markdown(value)
 
 
-def show_details(report: TxReport) -> None:
+def show_details(report: TxReport, explanation_internal: str) -> None:
+    """Everything the grid already summarises, in collapsed boxes so the result stays short."""
+    if report.token_transfers:
+        with st.expander("Token transfers"):
+            st.dataframe(transfer_rows(report.token_transfers), hide_index=True, width="stretch")
+    if report.attempted_transfers:
+        with st.expander("Attempted transfers (not executed)"):
+            st.dataframe(
+                transfer_rows(report.attempted_transfers), hide_index=True, width="stretch"
+            )
     if report.fee:
         with st.expander("Fee breakdown"):
             st.markdown("\n".join(f"- {line}" for line in fee_lines(report)))
-    if report.token_transfers:
-        st.caption("Token transfers")
-        st.dataframe(transfer_rows(report.token_transfers), hide_index=True, width="stretch")
-    if report.attempted_transfers:
-        st.caption("Attempted transfers, not executed")
-        st.dataframe(transfer_rows(report.attempted_transfers), hide_index=True, width="stretch")
     with st.expander("Full hash and addresses"):
         for label, value in (
             ("Hash", report.hash),
@@ -232,33 +280,46 @@ def show_details(report: TxReport) -> None:
             if value:
                 st.caption(label)
                 st.code(value, language=None, wrap_lines=True)
+    with st.expander("Internal summary"):
+        st.code(explanation_internal, language=None, wrap_lines=True)
+    with st.expander("Raw API data"):
+        st.json(report.raw or {}, expanded=False)
 
 
-def show_report(report: TxReport, lang: str) -> None:
-    label, color = badge_for(report)
-    st.badge(label, color=color)
+def show_report(report: TxReport) -> None:
+    text, color = headline(report)
+    st.header(f":{color}[{text}]", anchor=False)
     if report.status in (Status.SUCCESS, Status.FAILED, Status.PENDING):
         show_facts(report)
-        show_details(report)
     for warning in report.warnings:
         if warning.code is WarningCode.LOOKALIKE_TOKEN:
             st.warning(warning.text)
         else:
             st.info(warning.text)
 
+    st.subheader("Message for the client", anchor=False)
+    lang = (
+        st.pills(
+            "Language",
+            list(LANGUAGES),
+            default="en",
+            key="lang",
+            format_func=LANGUAGES.get,
+            label_visibility="collapsed",
+        )
+        or "en"
+    )
     explanation = explain(report, lang)
-    st.subheader("Internal summary")
-    st.code(explanation.internal, language=None, wrap_lines=True)
-    st.subheader("Message for the client")
-    st.caption(f"Language: {LANGUAGES[lang]}. Use the copy button in the corner of the box.")
     st.code(explanation.client, language=None, wrap_lines=True)
-    with st.expander("Raw API data"):
-        st.json(report.raw or {}, expanded=False)
+    show_details(report, explanation.internal)
 
 
-def pick_example(tx_hash: str) -> None:
-    st.session_state["query"] = tx_hash
-    st.session_state["example"] = tx_hash
+def pick_example() -> None:
+    label = st.session_state.get("example_choice")
+    tx_hash = dict(EXAMPLES).get(label)
+    if tx_hash:
+        st.session_state["query"] = tx_hash
+        st.session_state["example"] = tx_hash
 
 
 def main() -> None:
@@ -280,20 +341,20 @@ def main() -> None:
         )
         submitted = st.form_submit_button("Check", width="stretch")
 
-    lang = (
-        st.pills(
-            "Language of the client message",
-            list(LANGUAGES),
-            default="en",
-            format_func=LANGUAGES.get,
-        )
-        or "en"
+    # A selectbox, not buttons in an expander: an expander stays open after a click inside it.
+    st.selectbox(
+        "Try an example",
+        [label for label, _ in EXAMPLES],
+        index=None,
+        placeholder="Pick a public transaction",
+        key="example_choice",
+        on_change=pick_example,
     )
-
     with st.expander("Options"):
         choice = st.selectbox(
             "Network",
             list(NETWORK_CHOICES),
+            key="network",
             help="Auto-detect works for most hashes and links. Chains that need a paid "
             "Etherscan plan are not offered in the demo.",
         )
@@ -306,15 +367,6 @@ def main() -> None:
             placeholder="Default for the network",
             help="Example thresholds only. Every exchange and payment provider sets its own.",
         )
-    with st.expander("Try an example"):
-        for label, tx_hash in EXAMPLES:
-            st.button(
-                label,
-                key=f"example-{tx_hash[:10]}",
-                on_click=pick_example,
-                args=(tx_hash,),
-                width="stretch",
-            )
 
     network, chain_id = NETWORK_CHOICES[choice]
     query = text if submitted else st.session_state.pop("example", None)
@@ -328,7 +380,7 @@ def main() -> None:
         if view.notice:
             getattr(st, view.level)(view.notice)
         if view.report is not None:
-            show_report(view.report, lang)
+            show_report(view.report)
 
     st.divider()
     st.caption(

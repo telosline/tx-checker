@@ -33,8 +33,8 @@ def tron_fixture(name: str) -> dict[str, Any]:
 
 
 USDT = tron_fixture("usdt_transfer")
-USDT_EXAMPLE = "example-6b614edb1f"
-OOE_EXAMPLE = "example-02603687d2"
+USDT_EXAMPLE = "TRON: USDT transfer"
+OOE_EXAMPLE = "TRON: failed, out of energy"
 SUBMIT = "FormSubmitter:lookup-Check"
 
 
@@ -83,17 +83,30 @@ def submit(at: AppTest, text: str) -> AppTest:
 
 
 def visible_text(at: AppTest) -> str:
-    elements = [*at.title, *at.subheader, *at.markdown, *at.caption, *at.code]
+    elements = [*at.title, *at.header, *at.subheader, *at.markdown, *at.caption, *at.code]
     elements += [*at.info, *at.warning, *at.error, *at.success]
     return "\n".join(str(element.value) for element in elements)
 
 
+def pick_example(at: AppTest, label: str) -> AppTest:
+    return at.selectbox(key="example_choice").select(label).run()
+
+
 def client_box(at: AppTest) -> str:
-    return str(at.code[-1].value)
+    # the client message is the first code box on the page
+    return str(at.code[0].value)
 
 
 def internal_box(at: AppTest) -> str:
-    return str(at.code[-2].value)
+    return next(str(c.value) for c in at.code if str(c.value).startswith(("Network:", "Status:")))
+
+
+def headline(at: AppTest) -> str:
+    return str(at.header[0].value)
+
+
+def captions(at: AppTest) -> list[str]:
+    return [str(c.value) for c in at.caption]
 
 
 def test_the_page_renders_without_errors() -> None:
@@ -105,7 +118,7 @@ def test_the_page_renders_without_errors() -> None:
 
 
 def test_only_free_tier_chains_are_offered() -> None:
-    assert new_app().selectbox[0].options == [
+    assert new_app().selectbox(key="network").options == [
         "Auto-detect",
         "TRON",
         "Ethereum",
@@ -115,23 +128,23 @@ def test_only_free_tier_chains_are_offered() -> None:
     ]
 
 
-def test_language_choices_are_listed_in_the_ui() -> None:
-    group = new_app().get("button_group")[0]
+def test_language_choices_sit_above_the_client_message(routes: Routes) -> None:
+    routes.tron_returns(USDT)
+    at = pick_example(new_app(), USDT_EXAMPLE)
+    group = at.get("button_group")[0]
     assert group.options == ["English", "Українська", "Русский"]
     assert group.value == "en"
 
 
-def test_an_example_runs_and_shows_the_two_text_boxes(routes: Routes) -> None:
+def test_an_example_runs_and_shows_the_message_and_the_summary(routes: Routes) -> None:
     routes.tron_returns(USDT)
-    at = new_app()
-    at.button(key=USDT_EXAMPLE).click().run()
+    at = pick_example(new_app(), USDT_EXAMPLE)
     assert not at.exception
-    report = analyze_tron(USDT)
-    expected = explain(report, "en")
-    assert internal_box(at) == expected.internal
+    expected = explain(analyze_tron(USDT), "en")
     assert client_box(at) == expected.client
+    assert internal_box(at) == expected.internal
     assert at.text_input(key="query").value == USDT["hash"]
-    assert [s.value for s in at.subheader] == ["Internal summary", "Message for the client"]
+    assert [s.value for s in at.subheader] == ["Message for the client"]
 
 
 def test_typing_a_hash_and_pressing_check(routes: Routes) -> None:
@@ -152,25 +165,134 @@ def test_the_client_text_follows_the_language_without_a_new_lookup(routes: Route
     assert routes.tron.call_count == calls
 
 
-def test_facts_fee_and_transfers_are_shown(routes: Routes) -> None:
+def test_facts_include_the_fee_and_keep_the_breakdown_collapsed(routes: Routes) -> None:
     routes.tron_returns(USDT)
     at = submit(new_app(), USDT["hash"])
     text = visible_text(at)
-    assert "Fully confirmed" in text
     assert "1529.315 USDT" in text
-    assert "THobV9…5iNb" in text
-    assert len(at.dataframe) == 1
+    assert "Fee" in captions(at)
+    assert "0.345 TRX" in [str(m.value) for m in at.markdown]
     assert "TRX burned in total: 0.345" in text
-    assert {e.label for e in at.expander} >= {"Fee breakdown", "Raw API data"}
+    assert {e.label for e in at.expander} >= {"Fee breakdown", "Raw API data", "Token transfers"}
+    assert len(at.dataframe) == 1
+
+
+def test_the_status_is_a_large_headline_with_the_reason(routes: Routes) -> None:
+    routes.tron_returns(USDT)
+    assert headline(submit(new_app(), USDT["hash"])) == ":green[Success: fully confirmed]"
+
+    routes.tron_returns(tron_fixture("failed_out_of_energy"))
+    assert headline(pick_example(new_app(), OOE_EXAMPLE)) == ":red[Failed: out of energy]"
+
+    reverted = tron_fixture("failed_reverted")
+    routes.tron_returns(reverted)
+    at = submit(new_app(), reverted["hash"])
+    assert headline(at) == ":red[Failed: likely rejected by the contract (revert)]"
+
+    waiting = tron_fixture("unconfirmed_trx")
+    routes.tron_returns(waiting)
+    at = submit(new_app(), waiting["hash"])
+    assert headline(at) == ":orange[Success: waiting for confirmations]"
+
+
+def test_headlines_for_evm_pending_not_found_invalid_and_provider_errors(routes: Routes) -> None:
+    assert headline(submit(new_app(), "ab" * 32)) == ":gray[Not found]"
+    assert headline(submit(new_app(), "hello")) == ":red[Invalid input]"
+    routes.evm.mock(return_value=httpx.Response(400, json={"message": "bad"}))
+    at = submit(new_app(), "0x" + "ef" * 32)
+    assert headline(at) == ":red[Service temporarily unavailable]"
+
+
+def test_a_token_transfer_names_the_token_contract_and_the_real_recipient(
+    routes: Routes,
+) -> None:
+    routes.tron_returns(USDT)
+    at = submit(new_app(), USDT["hash"])
+    labels = captions(at)
+    assert "Token contract (USDT)" in labels
+    assert "Recipient" in labels
+    values = [str(m.value) for m in at.markdown]
+    assert "TR7NHq\u2026Lj6t" in values  # the token contract
+    assert "THobV9\u20265iNb" in values  # the recipient from the transfer
+    assert "To" not in labels[: labels.index("Hash")]  # not in the facts grid
+
+
+def test_a_failed_token_transfer_shows_the_intended_recipient(routes: Routes) -> None:
+    routes.tron_returns(tron_fixture("failed_out_of_energy"))
+    labels = captions(pick_example(new_app(), OOE_EXAMPLE))
+    assert "Token contract (USDT)" in labels
+    assert "Intended recipient" in labels
+    assert "Recipient" not in labels
+
+
+def test_a_plain_native_transfer_keeps_the_to_label(routes: Routes) -> None:
+    routes.evm_finds()
+    labels = captions(submit(new_app(), EVM_HASH))
+    grid = labels[: labels.index("Hash")]
+    assert "To" in grid
+    assert not any(label.startswith(("Token contract", "Recipient")) for label in grid)
+
+
+def test_a_legacy_token_contract_label_stays_readable(routes: Routes) -> None:
+    legacy = copy.deepcopy(USDT)
+    legacy["hash"] = "22" * 32
+    legacy["trc20TransferInfo"][0]["contract_address"] = LEGACY_USDC
+    legacy["toAddress"] = LEGACY_USDC
+    routes.tron_returns(legacy)
+    assert "Token contract (USDC, legacy)" in captions(submit(new_app(), legacy["hash"]))
+
+
+def test_confirmations_and_blocks_use_thousand_separators(routes: Routes) -> None:
+    routes.tron_returns(USDT)
+    values = [str(m.value) for m in submit(new_app(), USDT["hash"]).markdown]
+    assert "Final (86,685)" in values
+    assert "88,223,315" in values
+    assert "86685 of 19" not in values
+
+
+def test_below_the_threshold_shows_the_count_against_it(routes: Routes) -> None:
+    waiting = tron_fixture("unconfirmed_trx")
+    routes.tron_returns(waiting)
+    values = [str(m.value) for m in submit(new_app(), waiting["hash"]).markdown]
+    assert "2 of 19" in values
+    assert not any(v.startswith("Final") for v in values)
+
+
+def test_the_result_is_ordered_status_facts_message_then_collapsed_details(
+    routes: Routes,
+) -> None:
+    routes.tron_returns(USDT)
+    at = submit(new_app(), USDT["hash"])
+    order = [(el.type, getattr(el, "label", ""), str(getattr(el, "value", ""))) for el in at.main]
+
+    def position(kind: str, text: str = "") -> int:
+        return next(
+            i for i, (t, label, value) in enumerate(order) if t == kind and text in (label + value)
+        )
+
+    headline_at = position("header")
+    facts_at = position("caption", "Network")
+    message_at = position("subheader", "Message for the client")
+    summary_at = position("expander", "Internal summary")
+    assert headline_at < facts_at < message_at < summary_at
+    assert position("code", "The transaction on") < summary_at
+    assert all(not e.proto.expanded for e in at.expander)
+
+
+def test_options_and_examples_stay_out_of_the_way(routes: Routes) -> None:
+    at = new_app()
+    assert at.selectbox(key="example_choice").value is None
+    assert "Try an example" not in {e.label for e in at.expander}  # a closed list, not a box
+    assert [e.label for e in at.expander] == ["Options"]
+    assert not at.expander[0].proto.expanded
 
 
 def test_a_failed_transaction_lists_the_attempt_apart(routes: Routes) -> None:
     routes.tron_returns(tron_fixture("failed_out_of_energy"))
-    at = new_app()
-    at.button(key=OOE_EXAMPLE).click().run()
-    text = visible_text(at)
-    assert "Attempted transfers, not executed" in text
-    assert "Token transfers" not in text
+    at = pick_example(new_app(), OOE_EXAMPLE)
+    labels = {e.label for e in at.expander}
+    assert "Attempted transfers (not executed)" in labels
+    assert "Token transfers" not in labels
     assert len(at.dataframe) == 1
 
 
@@ -203,7 +325,7 @@ def test_a_waiting_transaction_honours_the_confirmation_option(routes: Routes) -
 def test_the_network_option_reaches_the_provider(routes: Routes) -> None:
     routes.evm_finds()
     at = new_app()
-    at.selectbox[0].select("Polygon")
+    at.selectbox(key="network").select("Polygon")
     submit(at, EVM_HASH)
     assert routes.evm.calls.last.request.url.params["chainid"] == "137"
     assert routes.tron.call_count == 0
