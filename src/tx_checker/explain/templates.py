@@ -371,3 +371,232 @@ TEMPLATES: dict[str, dict[str, Any]] = {
         },
     },
 }
+
+# Deposit check. Failed, pending, not found and error results reuse the scenarios above, so
+# only the cases that need the expectation have their own texts. Addresses in the wrong-address
+# text are shown in full on purpose: the client has to be able to compare them.
+DEPOSIT_INTERNAL: dict[str, Any] = {
+    "reasons": {
+        "tx_failed": "transaction failed",
+        "wrong_network": "wrong network",
+        "wrong_token": "wrong token",
+        "wrong_address": "wrong receiving address",
+        "amount_lower": "amount lower than expected",
+        "amount_higher": "amount higher than expected",
+    },
+    "waiting": "matches, not final yet",
+    "inconclusive": {
+        "not_found": "not found",
+        "pending": "not in a block yet, nothing to compare",
+        "provider_error": "provider error",
+        "invalid_input": "invalid input",
+    },
+    "similar_address": "address looks similar to the expected one, possible address poisoning",
+    "sent_as": "sent as {symbol}, counts as {ticker}",
+}
+
+DEPOSIT_TEMPLATES: dict[str, dict[str, Any]] = {
+    "en": {
+        "scenarios": {
+            "match": [
+                "The transaction on the {network} network was executed successfully and is fully "
+                "confirmed.",
+                "{details}",
+                "{warning}",
+                "Any further display of the funds on the balance depends on the receiving "
+                "platform.",
+            ],
+            "waiting": [
+                "The transaction on the {network} network was successful but is not fully "
+                "confirmed yet ({confirmations} of {required} network confirmations).",
+                "{details}",
+                "{warning}",
+                "Please open the link again later to see the current number of confirmations.",
+            ],
+            "wrong_network": [
+                "The transaction was found on the {network} network, but the deposit was "
+                "expected on the {expected_network} network, so it does not match the expected "
+                "deposit.",
+                "{details}",
+                "{warning}",
+                "Please contact the receiving platform: whether it can process funds sent "
+                "through a different network depends on it.",
+            ],
+            "wrong_token": [
+                "The transaction on the {network} network was successful, but it does not "
+                "contain the expected asset {asset}.",
+                "{sent_line}",
+                "{warning}",
+                "Please check which asset the deposit was meant for.",
+            ],
+            "wrong_address": [
+                "The transaction on the {network} network was successful, but the asset {asset} "
+                "was not sent to the expected address.",
+                "Expected address: {expected_address}, actual recipient: {actual_address}.",
+                "{similar_line}",
+                "{warning}",
+                "Please compare both addresses character by character.",
+            ],
+            "amount_lower": [
+                "The transaction on the {network} network was successful: {amount} was sent to "
+                "the expected address, which is less than the expected {expected_amount}.",
+                "This can happen if the platform that sent the funds deducted a withdrawal fee "
+                "from the amount.",
+                "{warning}",
+                "If the difference is not explained by a fee, please check the amount that was "
+                "entered for the withdrawal.",
+            ],
+            "amount_higher": [
+                "The transaction on the {network} network was successful: {amount} was sent to "
+                "the expected address, which is more than the expected {expected_amount}.",
+                "{warning}",
+                "Please check whether the expected amount was entered correctly.",
+            ],
+        },
+        "snippets": {
+            "details_match": "It matches the expected deposit: {amount} sent to the address {to}, "
+            "time: {when}.",
+            "sent_line": "Instead, {sent} was sent.",
+            "sent_none": "No transfer of this asset was found in it.",
+            "sent_unknown": "a token that is not in our list of known tokens (contract {contract})",
+            "sent_join": ", ",
+            "similar_line": "The two addresses start and end with the same characters but differ "
+            "in the middle. The address is best copied from the deposit page of the platform, "
+            "not from the transaction history.",
+        },
+    },
+    "uk": {
+        "scenarios": {
+            "match": [
+                "Транзакцію в мережі {network} успішно виконано та повністю підтверджено.",
+                "{details}",
+                "{warning}",
+                "Подальше відображення коштів на балансі залежить від платформи-отримувача.",
+            ],
+            "waiting": [
+                "Транзакцію в мережі {network} успішно виконано, але ще не повністю підтверджено "
+                "(підтверджень мережі: {confirmations} з {required}).",
+                "{details}",
+                "{warning}",
+                "Будь ласка, відкрийте посилання пізніше, щоб побачити актуальну кількість "
+                "підтверджень.",
+            ],
+            "wrong_network": [
+                "Транзакцію знайдено в мережі {network}, але депозит очікувався в мережі "
+                "{expected_network}, тому вона не відповідає очікуваному депозиту.",
+                "{details}",
+                "{warning}",
+                "Будь ласка, зверніться до платформи-отримувача: можливість обробити кошти, "
+                "надіслані через іншу мережу, залежить від неї.",
+            ],
+            "wrong_token": [
+                "Транзакцію в мережі {network} успішно виконано, але в ній немає очікуваного "
+                "активу {asset}.",
+                "{sent_line}",
+                "{warning}",
+                "Будь ласка, перевірте, для якого активу призначався депозит.",
+            ],
+            "wrong_address": [
+                "Транзакцію в мережі {network} успішно виконано, але актив {asset} надіслано не "
+                "на очікувану адресу.",
+                "Очікувана адреса: {expected_address}, фактичний отримувач: {actual_address}.",
+                "{similar_line}",
+                "{warning}",
+                "Будь ласка, порівняйте обидві адреси символ за символом.",
+            ],
+            "amount_lower": [
+                "Транзакцію в мережі {network} успішно виконано: на очікувану адресу надіслано "
+                "{amount}, що менше за очікувані {expected_amount}.",
+                "Так може бути, якщо платформа, з якої надсилали кошти, утримала комісію за "
+                "виведення із суми.",
+                "{warning}",
+                "Якщо різницю не пояснює комісія, будь ласка, перевірте суму, яку було вказано "
+                "для виведення.",
+            ],
+            "amount_higher": [
+                "Транзакцію в мережі {network} успішно виконано: на очікувану адресу надіслано "
+                "{amount}, що більше за очікувані {expected_amount}.",
+                "{warning}",
+                "Будь ласка, перевірте, чи правильно вказано очікувану суму.",
+            ],
+        },
+        "snippets": {
+            "details_match": "Вона відповідає очікуваному депозиту: {amount} надіслано на адресу "
+            "{to}, час: {when}.",
+            "sent_line": "Натомість надіслано: {sent}.",
+            "sent_none": "Переказів цього активу в ній не знайдено.",
+            "sent_unknown": "токен, якого немає в нашому списку відомих (контракт {contract})",
+            "sent_join": ", ",
+            "similar_line": "Початок і кінець цих адрес збігаються, а середина відрізняється. "
+            "Адресу варто копіювати зі сторінки депозиту платформи, а не з історії "
+            "транзакцій.",
+        },
+    },
+    "ru": {
+        "scenarios": {
+            "match": [
+                "Транзакция в сети {network} успешно выполнена и полностью подтверждена.",
+                "{details}",
+                "{warning}",
+                "Дальнейшее отображение средств на балансе зависит от платформы-получателя.",
+            ],
+            "waiting": [
+                "Транзакция в сети {network} успешно выполнена, но ещё не полностью "
+                "подтверждена (подтверждений сети: {confirmations} из {required}).",
+                "{details}",
+                "{warning}",
+                "Пожалуйста, откройте ссылку позже, чтобы увидеть актуальное количество "
+                "подтверждений.",
+            ],
+            "wrong_network": [
+                "Транзакция найдена в сети {network}, но депозит ожидался в сети "
+                "{expected_network}, поэтому она не соответствует ожидаемому депозиту.",
+                "{details}",
+                "{warning}",
+                "Пожалуйста, обратитесь к платформе-получателю: возможность обработать "
+                "средства, отправленные через другую сеть, зависит от неё.",
+            ],
+            "wrong_token": [
+                "Транзакция в сети {network} успешно выполнена, но в ней нет ожидаемого актива "
+                "{asset}.",
+                "{sent_line}",
+                "{warning}",
+                "Пожалуйста, проверьте, для какого актива предназначался депозит.",
+            ],
+            "wrong_address": [
+                "Транзакция в сети {network} успешно выполнена, но актив {asset} отправлен не "
+                "на ожидаемый адрес.",
+                "Ожидаемый адрес: {expected_address}, фактический получатель: {actual_address}.",
+                "{similar_line}",
+                "{warning}",
+                "Пожалуйста, сравните оба адреса символ за символом.",
+            ],
+            "amount_lower": [
+                "Транзакция в сети {network} успешно выполнена: на ожидаемый адрес отправлено "
+                "{amount}, что меньше ожидаемых {expected_amount}.",
+                "Так может быть, если платформа, с которой отправляли средства, удержала "
+                "комиссию за вывод из суммы.",
+                "{warning}",
+                "Если разницу не объясняет комиссия, пожалуйста, проверьте сумму, которая была "
+                "указана для вывода.",
+            ],
+            "amount_higher": [
+                "Транзакция в сети {network} успешно выполнена: на ожидаемый адрес отправлено "
+                "{amount}, что больше ожидаемых {expected_amount}.",
+                "{warning}",
+                "Пожалуйста, проверьте, правильно ли указана ожидаемая сумма.",
+            ],
+        },
+        "snippets": {
+            "details_match": "Она соответствует ожидаемому депозиту: {amount} отправлено на адрес "
+            "{to}, время: {when}.",
+            "sent_line": "Вместо него отправлено: {sent}.",
+            "sent_none": "Переводов этого актива в ней не найдено.",
+            "sent_unknown": "токен, которого нет в нашем списке известных (контракт {contract})",
+            "sent_join": ", ",
+            "similar_line": "Начало и конец этих адресов совпадают, а середина отличается. "
+            "Адрес стоит копировать со страницы депозита платформы, а не из истории "
+            "транзакций.",
+        },
+    },
+}

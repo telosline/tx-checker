@@ -73,6 +73,16 @@ class Expected:
     amount: Decimal
 
 
+@dataclass(frozen=True)
+class Sent:
+    """Something a transaction moved instead of the expected asset. No symbol: the token is not
+    in the registry and the amount is raw."""
+
+    amount: Decimal
+    symbol: str | None = None
+    contract: str | None = None
+
+
 @dataclass(kw_only=True)
 class DepositResult:
     verdict: Verdict
@@ -86,7 +96,7 @@ class DepositResult:
     # The symbol the matching token has when it is not the plain ticker (USDT0 for USDT).
     sent_as: str | None = None
     # WRONG_TOKEN: what the transaction moved instead of the expected asset.
-    sent_instead: list[str] = field(default_factory=list)
+    sent_instead: list[Sent] = field(default_factory=list)
     # WRONG_NETWORK: the chain where the hash was found.
     found_on: str | None = None
     similar_address: bool = False
@@ -255,23 +265,15 @@ def _registry_token(report: TxReport, transfer: TokenTransfer) -> Token | None:
     return lookup_token(report.chain_id, transfer.token_contract)
 
 
-def _sent_instead(report: TxReport) -> list[str]:
-    sent: list[str] = []
+def _sent_instead(report: TxReport) -> list[Sent]:
+    sent: list[Sent] = []
     if report.native_amount:
-        sent.append(f"{_plain(report.native_amount)} {report.native_symbol}")
+        sent.append(Sent(report.native_amount, report.native_symbol))
     for transfer in report.token_transfers:
         token = _registry_token(report, transfer)
-        if token is None:
-            sent.append(
-                f"unknown token {transfer.token_contract} (raw amount {_plain(transfer.amount)})"
-            )
-        else:
-            sent.append(f"{_plain(transfer.amount)} {token.symbol}")
+        symbol = token.symbol if token else None
+        sent.append(Sent(transfer.amount, symbol, transfer.token_contract))
     return sent
-
-
-def _plain(value: Decimal) -> str:
-    return format(value, "f")
 
 
 def _same_address(actual: str, expected: str, network: Network) -> bool:

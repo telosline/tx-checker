@@ -14,6 +14,7 @@ from tx_checker.config import CHAINS, MissingApiKeyError, get_chain
 from tx_checker.deposit_check import (
     ASSET_NETWORKS,
     DepositInputError,
+    DepositResult,
     Expected,
     Reason,
     Verdict,
@@ -67,6 +68,10 @@ def evm_report(name: str) -> TxReport:
         raw = client.fetch(data["_meta"]["tx_hash"], data["_meta"]["chain_id"])
     assert raw is not None
     return analyze_evm(raw, get_chain(data["_meta"]["chain_id"]))
+
+
+def sent(result: DepositResult) -> list[tuple[str, str | None]]:
+    return [(format(item.amount, "f"), item.symbol) for item in result.sent_instead]
 
 
 def expect(asset: str, address: str, amount: str) -> Expected:
@@ -311,13 +316,13 @@ def test_tron_wrong_token() -> None:
     )
     assert result.verdict is Verdict.MISMATCH
     assert result.reasons == [Reason.WRONG_TOKEN]
-    assert result.sent_instead == ["1529.315 USDT"]
+    assert sent(result) == [("1529.315", "USDT")]
 
 
 def test_tron_usdt_for_an_expected_trx() -> None:
     result = check_deposit(tron_report("usdt_transfer"), expect("TRX", TRON_RECIPIENT, "5"))
     assert result.reasons == [Reason.WRONG_TOKEN]
-    assert result.sent_instead == ["1529.315 USDT"]
+    assert sent(result) == [("1529.315", "USDT")]
 
 
 def test_trx_match_and_wrong_token_for_a_trx_transfer() -> None:
@@ -326,7 +331,7 @@ def test_trx_match_and_wrong_token_for_a_trx_transfer() -> None:
     assert check_deposit(report, expect("TRX", address, "7")).verdict is Verdict.MATCH
     wrong = check_deposit(report, expect("USDT-TRON", address, "7"))
     assert wrong.reasons == [Reason.WRONG_TOKEN]
-    assert wrong.sent_instead == ["7 TRX"]
+    assert sent(wrong) == [("7", "TRX")]
 
 
 def test_failed_transaction_is_a_mismatch_with_one_reason() -> None:
@@ -390,7 +395,7 @@ def test_eth_for_an_expected_usdt_is_wrong_token() -> None:
         evm_report("eth_transfer"), expect("USDT-ETHEREUM", ETH_RECIPIENT, "0.08")
     )
     assert result.reasons == [Reason.WRONG_TOKEN]
-    assert result.sent_instead == ["0.08 ETH"]
+    assert sent(result) == [("0.08", "ETH")]
 
 
 def test_evm_usdt_transfer_matches_then_differs_by_token_and_chain() -> None:
@@ -456,7 +461,7 @@ def test_usdc_is_not_usdt0() -> None:
     report = evm_with(137, transfer(POLYGON_USDT0, ETH_RECIPIENT, "50"))
     result = check_deposit(report, expect("USDC-POLYGON", ETH_RECIPIENT, "50"))
     assert result.reasons == [Reason.WRONG_TOKEN]
-    assert result.sent_instead == ["50 USDT0"]
+    assert sent(result) == [("50", "USDT0")]
 
 
 def test_legacy_usdc_on_tron_counts_as_usdc_and_keeps_its_warning() -> None:
@@ -472,7 +477,7 @@ def test_legacy_usdc_is_not_usdt() -> None:
     report = tron_with(transfer(TRON_LEGACY_USDC, TRON_RECIPIENT, "30"))
     result = check_deposit(report, expect("USDT-TRON", TRON_RECIPIENT, "30"))
     assert result.reasons == [Reason.WRONG_TOKEN]
-    assert result.sent_instead == ["30 USDC (legacy)"]
+    assert sent(result) == [("30", "USDC (legacy)")]
 
 
 def test_a_token_that_calls_itself_usdt_is_not_usdt() -> None:
@@ -481,14 +486,15 @@ def test_a_token_that_calls_itself_usdt_is_not_usdt() -> None:
     result = check_deposit(report, expect("USDT-TRON", TRON_RECIPIENT, "30"))
     assert result.verdict is Verdict.MISMATCH
     assert result.reasons == [Reason.WRONG_TOKEN]
-    assert result.sent_instead == [f"unknown token {fake} (raw amount 30)"]
+    assert sent(result) == [("30", None)]
+    assert result.sent_instead[0].contract == fake
 
 
 def test_unknown_evm_token_is_wrong_token() -> None:
     report = evm_with(1, transfer(ETH_OTHER, ETH_RECIPIENT, "5000000"))
     result = check_deposit(report, expect("USDT-ETHEREUM", ETH_RECIPIENT, "5"))
     assert result.reasons == [Reason.WRONG_TOKEN]
-    assert "unknown token" in result.sent_instead[0]
+    assert sent(result) == [("5000000", None)]
 
 
 def test_same_contract_on_another_chain_is_not_matched() -> None:
@@ -535,7 +541,7 @@ def test_native_value_zero_with_a_token_transfer_is_wrong_token() -> None:
     )
     result = check_deposit(report, expect("ETH", ETH_RECIPIENT, "1"))
     assert result.reasons == [Reason.WRONG_TOKEN]
-    assert result.sent_instead == ["5 USDT"]
+    assert sent(result) == [("5", "USDT")]
 
 
 def test_native_pol_on_polygon() -> None:
