@@ -26,28 +26,30 @@ TEMPLATES: dict[str, dict[str, Any]] = {
     "en": {
         "scenarios": {
             "success_final": [
-                "The transaction on {network} was executed successfully and is fully confirmed.",
+                "The transaction on the {network} network was executed successfully and is fully "
+                "confirmed.",
                 "{details}",
                 "{warning}",
                 "If the recipient does not see the funds, send them this link.",
             ],
             "success_waiting": [
-                "Your transaction on {network} was successful but is not fully confirmed yet "
-                "({confirmations} of {required} network confirmations).",
+                "The transaction on the {network} network was successful but is not fully "
+                "confirmed yet ({confirmations} of {required} network confirmations).",
                 "{details}",
                 "{warning}",
                 "Please open the link again later to see the current number of confirmations.",
             ],
             "pending": [
-                "Your transaction on {network} has been sent but is not included in a block yet, "
+                "The transaction on the {network} network has been sent but is not included in a "
+                "block yet, "
                 "so it is not confirmed.",
                 "{details}",
                 "{warning}",
                 "Please open the link again a little later to see its current state.",
             ],
             "failed_out_of_gas": [
-                "Your transaction on {network} was not completed: it most likely ran out of its "
-                "gas limit (gas is the network fee, paid in {native}).",
+                "The transaction on the {network} network was not completed: it most likely "
+                "ran out of its gas limit (gas is the network fee, paid in {native}).",
                 "{fee_line}",
                 "{details}",
                 "{warning}",
@@ -55,8 +57,9 @@ TEMPLATES: dict[str, dict[str, Any]] = {
                 "fee setting in the wallet).",
             ],
             "failed_out_of_energy": [
-                "Your transaction on {network} was not completed: the sender's wallet ran out of "
-                "energy (a TRON network resource for smart-contract operations).",
+                "The transaction on the {network} network was not completed: the sender's "
+                "wallet ran out of energy (a TRON network resource for smart-contract "
+                "operations).",
                 "{fee_line}",
                 "{details}",
                 "{warning}",
@@ -64,7 +67,8 @@ TEMPLATES: dict[str, dict[str, Any]] = {
                 "raise the fee limit in the wallet.",
             ],
             "failed_reverted": [
-                "Your transaction on {network} was not completed: it was most likely rejected by "
+                "The transaction on the {network} network was not completed: it was most likely "
+                "rejected by "
                 "the smart contract it called (this is called a \u201crevert\u201d), and the exact "
                 "reason is not shown in the blockchain data.",
                 "{fee_line}",
@@ -73,7 +77,7 @@ TEMPLATES: dict[str, dict[str, Any]] = {
                 "Please contact the service or the wallet this transaction was sent from.",
             ],
             "failed_other": [
-                "Your transaction on {network} was not completed.",
+                "The transaction on the {network} network was not completed.",
                 "{fee_line}",
                 "{details}",
                 "{warning}",
@@ -145,7 +149,7 @@ TEMPLATES: dict[str, dict[str, Any]] = {
                 "Якщо отримувач не бачить коштів, надішліть йому це посилання.",
             ],
             "success_waiting": [
-                "Ваша транзакція в мережі {network} успішна, але ще не повністю підтверджена "
+                "Транзакцію в мережі {network} успішно виконано, але ще не повністю підтверджено "
                 "(підтверджень мережі: {confirmations} з {required}).",
                 "{details}",
                 "{warning}",
@@ -153,14 +157,14 @@ TEMPLATES: dict[str, dict[str, Any]] = {
                 "підтверджень.",
             ],
             "pending": [
-                "Вашу транзакцію в мережі {network} надіслано, але її ще не включено до блоку, "
+                "Транзакцію в мережі {network} надіслано, але її ще не включено до блоку, "
                 "тому вона не підтверджена.",
                 "{details}",
                 "{warning}",
                 "Будь ласка, відкрийте посилання трохи пізніше, щоб побачити її поточний стан.",
             ],
             "failed_out_of_gas": [
-                "Вашу транзакцію в мережі {network} не виконано: імовірно, їй не вистачило "
+                "Транзакцію в мережі {network} не виконано: імовірно, їй не вистачило "
                 "ліміту gas (комісії мережі, яка сплачується в {native}).",
                 "{fee_line}",
                 "{details}",
@@ -169,7 +173,7 @@ TEMPLATES: dict[str, dict[str, Any]] = {
                 "налаштування комісії в гаманці).",
             ],
             "failed_out_of_energy": [
-                "Вашу транзакцію в мережі {network} не виконано: на гаманці відправника "
+                "Транзакцію в мережі {network} не виконано: на гаманці відправника "
                 "закінчилася енергія (ресурс мережі TRON для операцій зі смарт-контрактами).",
                 "{fee_line}",
                 "{details}",
@@ -178,7 +182,7 @@ TEMPLATES: dict[str, dict[str, Any]] = {
                 "{native} для комісії, або збільште ліміт комісії (fee limit) у гаманці.",
             ],
             "failed_reverted": [
-                "Вашу транзакцію в мережі {network} не виконано: імовірно, смарт-контракт, до "
+                "Транзакцію в мережі {network} не виконано: імовірно, смарт-контракт, до "
                 "якого вона звернулася, її відхилив (це називається \u00abrevert\u00bb), а "
                 "точна причина в даних блокчейну не відображається.",
                 "{fee_line}",
@@ -188,7 +192,7 @@ TEMPLATES: dict[str, dict[str, Any]] = {
                 "транзакцію.",
             ],
             "failed_other": [
-                "Вашу транзакцію в мережі {network} не виконано.",
+                "Транзакцію в мережі {network} не виконано.",
                 "{fee_line}",
                 "{details}",
                 "{warning}",
@@ -260,7 +264,7 @@ TEMPLATES: dict[str, dict[str, Any]] = {
                 "Если получатель не видит средств, отправьте ему эту ссылку.",
             ],
             "success_waiting": [
-                "Ваша транзакция в сети {network} выполнена успешно, но ещё не полностью "
+                "Транзакция в сети {network} успешно выполнена, но ещё не полностью "
                 "подтверждена (подтверждений сети: {confirmations} из {required}).",
                 "{details}",
                 "{warning}",
@@ -268,14 +272,14 @@ TEMPLATES: dict[str, dict[str, Any]] = {
                 "подтверждений.",
             ],
             "pending": [
-                "Ваша транзакция в сети {network} отправлена, но ещё не включена в блок, "
+                "Транзакция в сети {network} отправлена, но ещё не включена в блок, "
                 "поэтому не подтверждена.",
                 "{details}",
                 "{warning}",
                 "Пожалуйста, откройте ссылку чуть позже, чтобы увидеть её текущее состояние.",
             ],
             "failed_out_of_gas": [
-                "Ваша транзакция в сети {network} не выполнена: вероятно, ей не хватило лимита "
+                "Транзакция в сети {network} не выполнена: вероятно, ей не хватило лимита "
                 "gas (комиссии сети, которая оплачивается в {native}).",
                 "{fee_line}",
                 "{details}",
@@ -284,7 +288,7 @@ TEMPLATES: dict[str, dict[str, Any]] = {
                 "(обычно это настройка комиссии в кошельке).",
             ],
             "failed_out_of_energy": [
-                "Ваша транзакция в сети {network} не выполнена: на кошельке отправителя "
+                "Транзакция в сети {network} не выполнена: на кошельке отправителя "
                 "закончилась энергия (ресурс сети TRON для операций со смарт-контрактами).",
                 "{fee_line}",
                 "{details}",
@@ -293,7 +297,7 @@ TEMPLATES: dict[str, dict[str, Any]] = {
                 "{native} для комиссии, или увеличьте лимит комиссии (fee limit) в кошельке.",
             ],
             "failed_reverted": [
-                "Ваша транзакция в сети {network} не выполнена: вероятно, смарт-контракт, к "
+                "Транзакция в сети {network} не выполнена: вероятно, смарт-контракт, к "
                 "которому она обратилась, её отклонил (это называется \u00abrevert\u00bb), а "
                 "точная причина в данных блокчейна не отображается.",
                 "{fee_line}",
@@ -303,7 +307,7 @@ TEMPLATES: dict[str, dict[str, Any]] = {
                 "транзакция.",
             ],
             "failed_other": [
-                "Ваша транзакция в сети {network} не выполнена.",
+                "Транзакция в сети {network} не выполнена.",
                 "{fee_line}",
                 "{details}",
                 "{warning}",

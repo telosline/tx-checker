@@ -386,7 +386,8 @@ def test_polite_form_is_used_in_uk_and_ru() -> None:
 
 
 GOLDEN_USDT = {
-    "en": "The transaction on TRON was executed successfully and is fully confirmed. Amount: "
+    "en": "The transaction on the TRON network was executed successfully and is fully "
+    "confirmed. Amount: "
     "1529.315 USDT, recipient: THobV9\u20265iNb, time: 2026-11-22 10:41 UTC. If the recipient "
     "does not see the funds, send them this link.",
     "uk": "Транзакцію в мережі TRON успішно виконано та повністю підтверджено. Сума: 1529.315 "
@@ -540,3 +541,19 @@ def test_not_found_in_two_networks_is_phrased_per_language() -> None:
     report = CASES["not_found_both"][0]()
     assert "ні в мережі TRON, ні в мережі Ethereum" in explain(report, "uk").client
     assert "ни в сети TRON, ни в сети Ethereum" in explain(report, "ru").client
+
+
+@pytest.mark.parametrize("lang", LANGS)
+@pytest.mark.parametrize("case", CASES)
+def test_texts_never_call_the_transaction_the_readers_own(case: str, lang: str) -> None:
+    # the person asking is often the recipient, not the sender
+    client = explain(CASES[case][0](), lang).client.split("\n")[0].lower()
+    assert "your transaction" not in client
+    assert not re.search(r"ваш\w* транзакц", client)
+
+
+def test_transaction_sentences_share_one_impersonal_style() -> None:
+    for case in ("success_final_evm", "success_waiting", "pending", "failed_out_of_gas"):
+        assert explain(CASES[case][0](), "en").client.startswith("The transaction on the ")
+        assert explain(CASES[case][0](), "uk").client.startswith("Транзакцію в мережі ")
+        assert explain(CASES[case][0](), "ru").client.startswith("Транзакция в сети ")
