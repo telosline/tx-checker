@@ -83,13 +83,15 @@ def analyze_evm(
         report.to_is_contract = raw.to_code not in ("0x", "0x0", "")
 
     report.token_transfers = _token_transfers(receipt.get("logs") or [], chain.chain_id)
-    report.warnings = _warnings(report, value)
+    no_calldata = tx.get("input") in (None, "", "0x")
+    report.warnings = _warnings(report, value, no_calldata)
     return report
 
 
-def _warnings(report: TxReport, native_value: int) -> list[ReportWarning]:
+def _warnings(report: TxReport, native_value: int, no_calldata: bool) -> list[ReportWarning]:
     warnings: list[ReportWarning] = []
-    if native_value > 0 and report.to_is_contract:
+    # Calls with data (swaps, deposits) legitimately carry value, only a bare send is odd.
+    if native_value > 0 and no_calldata and report.to_is_contract:
         warnings.append(
             ReportWarning(
                 WarningCode.TO_IS_CONTRACT, "Native coins were sent directly to a contract address."

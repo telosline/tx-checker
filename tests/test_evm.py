@@ -206,6 +206,22 @@ def test_native_coins_sent_to_a_contract_warns() -> None:
     assert [w.code for w in report.warnings] == [WarningCode.TO_IS_CONTRACT]
 
 
+def test_payable_call_to_a_contract_does_not_warn() -> None:
+    raw = fetch("eth_transfer")
+    assert raw is not None
+    call = {**raw.transaction, "input": "0xd0e30db0"}
+    report = analyze_evm(replace(raw, transaction=call, to_code="0x6060"), get_chain(1))
+    assert report.to_is_contract is True
+    assert report.native_amount == Decimal("0.08")
+    assert report.warnings == []
+
+
+def test_token_transfer_to_the_token_contract_does_not_warn() -> None:
+    report = report_for("usdt_transfer")
+    assert report.to_is_contract is True
+    assert WarningCode.TO_IS_CONTRACT not in [w.code for w in report.warnings]
+
+
 def test_contract_creation_has_no_recipient() -> None:
     raw = fetch("eth_transfer")
     assert raw is not None
