@@ -132,7 +132,13 @@ The same message in Ukrainian (`--lang uk`):
 Ви можете самостійно перевірити транзакцію: https://tronscan.org/#/transaction/02603687d24c4f3d9a2af90171aae7cad94f33594b2c9c05d33b77785dfac5aa
 ```
 
-### The web demo on a phone
+### The web demo
+
+The message for the client comes right after the key facts, with a language switch above it. The token transfers, the fee breakdown, the full hash and the internal summary are in collapsible sections below it (opened here):
+
+![The web demo on a desktop screen: the message for the client, then the token transfers, the fee breakdown and the full hash](docs/screenshots/pc2.png)
+
+The layout is a single column, so it also works on a phone:
 
 <p>
   <img src="docs/screenshots/mobile1.png" alt="Phone screen: the input form and the result of a confirmed ETH transfer" width="300">
