@@ -126,14 +126,14 @@ class TxReport:
 
     def to_dict(self) -> dict[str, Any]:
         """JSON-friendly dict: Decimals as plain strings, datetimes as ISO 8601, enums as values."""
-        data = _jsonable(self)
+        data = jsonable(self)
         data["is_final"] = self.is_final
         return data
 
 
-def _jsonable(value: Any) -> Any:
+def jsonable(value: Any) -> Any:
     if is_dataclass(value) and not isinstance(value, type):
-        return {f.name: _jsonable(getattr(value, f.name)) for f in fields(value)}
+        return {f.name: jsonable(getattr(value, f.name)) for f in fields(value)}
     if isinstance(value, Decimal):
         # "f" avoids scientific notation such as 1E-7
         return format(value, "f")
@@ -142,5 +142,5 @@ def _jsonable(value: Any) -> Any:
     if isinstance(value, Enum):
         return value.value
     if isinstance(value, list):
-        return [_jsonable(item) for item in value]
+        return [jsonable(item) for item in value]
     return value

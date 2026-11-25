@@ -6,6 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from decimal import Decimal
 from enum import StrEnum
+from typing import Any
 
 from tx_checker.check import check
 from tx_checker.config import (
@@ -16,7 +17,7 @@ from tx_checker.config import (
     lookup_tron_token,
 )
 from tx_checker.detect import Detection, detect
-from tx_checker.models import Network, Status, TokenTransfer, TxReport
+from tx_checker.models import Network, Status, TokenTransfer, TxReport, jsonable
 
 TOKEN_TICKERS = ("USDT", "USDC")
 # Network name used in asset names -> (network, chain id).
@@ -100,6 +101,12 @@ class DepositResult:
     # WRONG_NETWORK: the chain where the hash was found.
     found_on: str | None = None
     similar_address: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        """JSON-friendly dict, like `TxReport.to_dict`."""
+        data = jsonable(self)
+        data["report"] = self.report.to_dict()
+        return data
 
 
 @dataclass(frozen=True)
