@@ -1,7 +1,8 @@
 from datetime import UTC, datetime
-from decimal import Context, Decimal
+from decimal import Decimal
 from typing import Any
 
+from tx_checker.analyze.amounts import scale_amount
 from tx_checker.config import Chain, lookup_token
 from tx_checker.models import (
     EvmFee,
@@ -17,22 +18,6 @@ from tx_checker.providers.etherscan import EvmRawData
 
 TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
 NATIVE_DECIMALS = 18
-
-# Enough digits for any uint256, so scaling never rounds.
-_EXACT = Context(prec=100)
-
-
-def scale_amount(raw: int, decimals: int) -> Decimal:
-    """Move the decimal point of an integer amount, exactly and without trailing zeros."""
-    return _tidy(Decimal(raw).scaleb(-decimals, context=_EXACT))
-
-
-def _tidy(value: Decimal) -> Decimal:
-    value = value.normalize(_EXACT)
-    # normalize() turns 100 into 1E+2, keep plain integers plain
-    if value.as_tuple().exponent > 0:  # type: ignore[operator]
-        return value.quantize(Decimal(1), context=_EXACT)
-    return value
 
 
 def analyze_evm(
