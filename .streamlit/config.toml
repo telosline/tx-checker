@@ -1,0 +1,7 @@
+[client]
+# Never show a raw traceback to visitors of the public demo.
+showErrorDetails = "none"
+toolbarMode = "minimal"
+
+[browser]
+gatherUsageStats = false

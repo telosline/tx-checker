@@ -127,11 +127,11 @@ def _details(report: TxReport, scenario: Scenario, texts: dict[str, Any]) -> str
     when = _when(report, snippets)
     if scenario in (Scenario.SUCCESS_FINAL, Scenario.SUCCESS_WAITING):
         amounts = _amounts(report.token_transfers, report, snippets)
-        recipients = _recipients(report.token_transfers) or _short(report.to_address)
+        recipients = _recipients(report.token_transfers) or short_address(report.to_address)
         key = "details_transfer" if amounts else "details_none"
         return snippets[key].format(amount=amounts, to=recipients, when=when)
     if scenario is Scenario.PENDING:
-        to = _short(report.to_address)
+        to = short_address(report.to_address)
         if _native(report):
             amounts = _amounts([], report, snippets)
             return snippets["details_pending_amount"].format(amount=amounts, to=to)
@@ -140,7 +140,7 @@ def _details(report: TxReport, scenario: Scenario, texts: dict[str, Any]) -> str
         return ""
     if report.status is Status.FAILED:
         attempted = _amounts(report.attempted_transfers, report, snippets)
-        to = _recipients(report.attempted_transfers) or _short(report.to_address)
+        to = _recipients(report.attempted_transfers) or short_address(report.to_address)
         if attempted:
             return snippets["details_failed_attempt"].format(to=to, when=when, attempted=attempted)
         return snippets["details_failed"].format(to=to, when=when)
@@ -168,11 +168,11 @@ def _native(report: TxReport) -> Decimal | None:
 
 
 def _recipients(transfers: list[TokenTransfer]) -> str:
-    unique = dict.fromkeys(_short(t.to_address) for t in transfers)
+    unique = dict.fromkeys(short_address(t.to_address) for t in transfers)
     return ", ".join(unique)
 
 
-def _short(address: str | None) -> str:
+def short_address(address: str | None) -> str:
     """First 6 and last 4 characters, enough for the client to recognise the address."""
     if not address:
         return NO_ADDRESS

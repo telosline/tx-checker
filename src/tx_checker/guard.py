@@ -61,10 +61,13 @@ class DemoBudget:
     def __init__(
         self,
         providers: tuple[str, ...] = (ETHERSCAN, TRONSCAN),
-        per_minute: int = config.PROVIDER_CALLS_PER_MINUTE,
-        per_day: int = config.PROVIDER_CALLS_PER_DAY,
+        per_minute: int | None = None,
+        per_day: int | None = None,
         clock: Clock = time.monotonic,
     ) -> None:
+        # Read the limits here, not at import, so a deployment or a test can change them.
+        per_minute = config.PROVIDER_CALLS_PER_MINUTE if per_minute is None else per_minute
+        per_day = config.PROVIDER_CALLS_PER_DAY if per_day is None else per_day
         self._windows = {
             name: (RateWindow(per_minute, MINUTE, clock), RateWindow(per_day, DAY, clock))
             for name in providers
@@ -86,10 +89,8 @@ class DemoBudget:
 class TtlCache:
     """Small in-memory cache. Each entry carries its own lifetime."""
 
-    def __init__(
-        self, max_entries: int = config.CACHE_MAX_ENTRIES, clock: Clock = time.monotonic
-    ) -> None:
-        self._max = max_entries
+    def __init__(self, max_entries: int | None = None, clock: Clock = time.monotonic) -> None:
+        self._max = config.CACHE_MAX_ENTRIES if max_entries is None else max_entries
         self._clock = clock
         self._items: OrderedDict[Any, tuple[float, Any]] = OrderedDict()
         self._lock = threading.Lock()
