@@ -1,0 +1,39 @@
+{
+  "block": 88223301,
+  "confirmations": 86698,
+  "confirmed": true,
+  "contractData": {
+    "amount": 7000000,
+    "owner_address": "TGFRRV96uabvdGRS1GDXmfHvRR1zfavo9g",
+    "to_address": "TBnyUEJwkLjy2LgMM5QXeMvMCi9DFFFFVS"
+  },
+  "contractRet": "SUCCESS",
+  "contractType": 1,
+  "contract_map": {
+    "TBnyUEJwkLjy2LgMM5QXeMvMCi9DFFFFVS": false,
+    "TGFRRV96uabvdGRS1GDXmfHvRR1zfavo9g": false
+  },
+  "cost": {
+    "account_create_fee": 0,
+    "date_created": 1795344042,
+    "energy_fee": 0,
+    "energy_fee_cost": 100,
+    "energy_penalty_total": 0,
+    "energy_usage": 0,
+    "energy_usage_total": 0,
+    "fee": 0,
+    "memoFee": 0,
+    "multi_sign_fee": 0,
+    "net_fee": 0,
+    "net_fee_cost": 1000,
+    "net_usage": 268,
+    "origin_energy_usage": 0
+  },
+  "hash": "4b958c8d60bd929f181f67c16048060eb0c9c68d5e726b0e07fe9676ad41e02c",
+  "info": {},
+  "ownerAddress": "TGFRRV96uabvdGRS1GDXmfHvRR1zfavo9g",
+  "revert": false,
+  "timestamp": 1795344042000,
+  "toAddress": "TBnyUEJwkLjy2LgMM5QXeMvMCi9DFFFFVS",
+  "trigger_info": {}
+}

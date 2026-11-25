@@ -59,6 +59,10 @@ def get_chain(chain_id: int) -> Chain:
 class Token:
     symbol: str
     decimals: int
+    # An older version of a token that is still held and sent.
+    legacy: bool = False
+    # The symbol the explorer shows, when it differs from ours.
+    explorer_symbol: str | None = None
 
 
 # Only entries checked against the issuer docs and the explorer token page are listed.
@@ -86,16 +90,54 @@ def lookup_token(chain_id: int, contract: str) -> Token | None:
     return TOKENS.get((chain_id, contract.lower()))
 
 
+TRON_NAME = "TRON"
+TRON_SYMBOL = "TRX"
+# Example value only. Every exchange and payment provider sets its own. 19 is roughly where
+# TRON considers a block solidified.
+TRON_REQUIRED_CONFIRMATIONS = 19
+
+
+def tron_tx_url(tx_hash: str) -> str:
+    return f"https://tronscan.org/#/transaction/{tx_hash}"
+
+
+# TRON addresses are case-sensitive base58, so the keys keep their case.
+# USDT: address from the Tether supported-protocols page, decimals from Tronscan token data.
+# USDC: Circle's contract list has no TRON entry. The old contract is still in use. Tronscan
+# names it "USD Coin Old" with the symbol USDCOLD and 6 decimals, so it is listed as legacy.
+TRON_TOKENS: dict[str, Token] = {
+    "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t": Token("USDT", 6),
+    "TEkxiTehnzSmSe2XqrBj4w32RUN966rdz8": Token(
+        "USDC (legacy)", 6, legacy=True, explorer_symbol="USDCOLD"
+    ),
+}
+
+# Symbols scammers copy. A token that uses one of them without being the registered
+# contract is flagged as a lookalike.
+PROTECTED_SYMBOLS = frozenset({"USDT", "USDC"})
+
+
+def lookup_tron_token(contract: str) -> Token | None:
+    return TRON_TOKENS.get(contract)
+
+
 class MissingApiKeyError(RuntimeError):
     """A required API key is not configured."""
 
 
+def _load_key(name: str) -> str:
+    load_dotenv()
+    key = os.environ.get(name, "").strip()
+    if not key:
+        raise MissingApiKeyError(f"{name} is not set. Copy .env.example to .env and add your key.")
+    return key
+
+
 def load_etherscan_key() -> str:
     """Return ETHERSCAN_API_KEY from the environment or a local .env file."""
-    load_dotenv()
-    key = os.environ.get("ETHERSCAN_API_KEY", "").strip()
-    if not key:
-        raise MissingApiKeyError(
-            "ETHERSCAN_API_KEY is not set. Copy .env.example to .env and add your key."
-        )
-    return key
+    return _load_key("ETHERSCAN_API_KEY")
+
+
+def load_tronscan_key() -> str:
+    """Return TRONSCAN_API_KEY from the environment or a local .env file."""
+    return _load_key("TRONSCAN_API_KEY")

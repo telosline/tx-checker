@@ -1,0 +1,66 @@
+{
+  "block": 88220015,
+  "confirmations": 89978,
+  "confirmed": true,
+  "contractData": {
+    "contract_address": "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
+    "owner_address": "TFEPDt7APk52U9dwUAqr7jZdXRdRHht2xk"
+  },
+  "contractRet": "REVERT",
+  "contractType": 31,
+  "contract_map": {
+    "TFEPDt7APk52U9dwUAqr7jZdXRdRHht2xk": false,
+    "TGfuWrNMJDZuLmNHCLoNpvvQYiTYRy2m8h": false,
+    "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t": true
+  },
+  "contract_type": "trc20",
+  "cost": {
+    "date_created": 1795334184,
+    "energy_fee": 0,
+    "energy_fee_cost": 100,
+    "energy_penalty_total": 6640,
+    "energy_usage": 8624,
+    "energy_usage_total": 8624,
+    "fee": 0,
+    "memoFee": 0,
+    "multi_sign_fee": 0,
+    "net_fee": 345000,
+    "net_fee_cost": 1000,
+    "net_usage": 0,
+    "origin_energy_usage": 0
+  },
+  "event_count": 0,
+  "fee_limit": 225000000,
+  "hash": "b92f8697ffb99fe8e8824765e8312074792a9bd42067877cdfa606a6e65e63bb",
+  "info": {
+    "resMessage": "REVERT opcode executed"
+  },
+  "ownerAddress": "TFEPDt7APk52U9dwUAqr7jZdXRdRHht2xk",
+  "revert": false,
+  "revertReason": "",
+  "timestamp": 1795334184000,
+  "toAddress": "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
+  "transfersAllList": [],
+  "trc20TransferInfo": [
+    {
+      "amount_str": "1000000000",
+      "contract_address": "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
+      "decimals": 6,
+      "from_address": "TFEPDt7APk52U9dwUAqr7jZdXRdRHht2xk",
+      "name": "Tether USD",
+      "symbol": "USDT",
+      "to_address": "TGfuWrNMJDZuLmNHCLoNpvvQYiTYRy2m8h",
+      "type": "Transfer"
+    }
+  ],
+  "trigger_info": {
+    "call_value": 0,
+    "contract_address": "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t",
+    "method": "transfer(address _to,uint256 _value)",
+    "methodId": "a9059cbb",
+    "parameter": {
+      "_to": "TGfuWrNMJDZuLmNHCLoNpvvQYiTYRy2m8h",
+      "_value": "1000000000"
+    }
+  }
+}

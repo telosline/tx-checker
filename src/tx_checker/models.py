@@ -32,6 +32,8 @@ class WarningCode(StrEnum):
     TO_IS_CONTRACT = "to_is_contract"
     ZERO_VALUE = "zero_value"
     UNKNOWN_TOKEN = "unknown_token"
+    LOOKALIKE_TOKEN = "lookalike_token"
+    LEGACY_TOKEN = "legacy_token"
     LOW_CONFIRMATIONS = "low_confirmations"
     NETWORK_GUESSED = "network_guessed"
     NETWORK_UNCONFIRMED = "network_unconfirmed"
@@ -66,8 +68,13 @@ class EvmFee:
 
 @dataclass(frozen=True)
 class TronFee:
+    """Energy and bandwidth are totals in units. `energy_used` is the sum of the stake, contract
+    and burned parts, `bandwidth_used` counts the burned part too."""
+
     energy_used: int
     energy_from_stake: int
+    # Energy the contract owner paid for the caller.
+    energy_from_contract: int
     energy_burned_trx: Decimal
     bandwidth_used: int
     bandwidth_burned_trx: Decimal
@@ -96,6 +103,8 @@ class TxReport:
     native_amount: Decimal | None = None
     native_symbol: str | None = None
     token_transfers: list[TokenTransfer] = field(default_factory=list)
+    # What a failed transaction tried to move. Nothing in this list happened on chain.
+    attempted_transfers: list[TokenTransfer] = field(default_factory=list)
     fee: EvmFee | TronFee | None = None
     warnings: list[ReportWarning] = field(default_factory=list)
     raw: dict[str, Any] | None = None

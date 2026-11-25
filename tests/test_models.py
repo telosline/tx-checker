@@ -134,6 +134,7 @@ def test_to_dict_tron_fee() -> None:
         fee=TronFee(
             energy_used=65000,
             energy_from_stake=65000,
+            energy_from_contract=0,
             energy_burned_trx=Decimal("0"),
             bandwidth_used=345,
             bandwidth_burned_trx=Decimal("0.345"),
