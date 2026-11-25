@@ -174,7 +174,7 @@ FULL_ADDRESS_CASES = {"wrong_address", "wrong_address_similar"}
 # What the last sentence of each deposit text says: one clear next step.
 NEXT_STEP = {
     "en": {
-        DepositScenario.MATCH: "depends on the receiving platform.",
+        DepositScenario.MATCH: "to show the funds on the balance.",
         DepositScenario.WAITING: "current number of confirmations.",
         DepositScenario.WRONG_NETWORK: "sent through a different network depends on it.",
         DepositScenario.WRONG_TOKEN: "which asset the deposit was meant for.",
@@ -394,8 +394,8 @@ GOLDEN = {
     "match": {
         "en": "The transaction on the TRON network was executed successfully and is fully "
         "confirmed. It matches the expected deposit: 1529.315 USDT sent to the address "
-        "THobV9\u20265iNb, time: 2026-11-22 10:41 UTC. Any further display of the funds on the "
-        "balance depends on the receiving platform.",
+        "THobV9\u20265iNb, time: 2026-11-22 10:41 UTC. From here, it is up to the receiving "
+        "platform to show the funds on the balance.",
         "uk": "Транзакцію в мережі TRON успішно виконано та повністю підтверджено. Вона "
         "відповідає очікуваному депозиту: 1529.315 USDT надіслано на адресу THobV9\u20265iNb, "
         "час: 2026-11-22 10:41 UTC. Подальше відображення коштів на балансі залежить від "

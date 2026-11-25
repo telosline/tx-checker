@@ -403,8 +403,7 @@ DEPOSIT_TEMPLATES: dict[str, dict[str, Any]] = {
                 "confirmed.",
                 "{details}",
                 "{warning}",
-                "Any further display of the funds on the balance depends on the receiving "
-                "platform.",
+                "From here, it is up to the receiving platform to show the funds on the balance.",
             ],
             "waiting": [
                 "The transaction on the {network} network was successful but is not fully "
