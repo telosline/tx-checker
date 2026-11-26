@@ -9,6 +9,7 @@ from test_deposit_check import (
     ETH_RECIPIENT,
     HASH,
     TRON_RECIPIENT,
+    Lookup,
     evm_report,
     evm_with,
     expect,
@@ -18,7 +19,14 @@ from test_deposit_check import (
     tron_with,
 )
 from test_explain import FORBIDDEN, sentences_of
-from tx_checker.deposit_check import DepositResult, Expected, check_deposit, parse_asset
+from tx_checker.config import MissingApiKeyError
+from tx_checker.deposit_check import (
+    DepositResult,
+    Expected,
+    check_deposit,
+    find_deposit,
+    parse_asset,
+)
 from tx_checker.explain.explain import (
     LANGS,
     DepositScenario,
@@ -586,3 +594,20 @@ def test_the_match_text_no_longer_tells_the_reader_to_forward_the_link() -> None
         assert "send them this link" not in client
         for word in FORBIDDEN[lang]:
             assert word not in client
+
+
+def test_internal_summary_says_when_a_missing_key_cut_the_search_short() -> None:
+    lookup = Lookup()
+    lookup.raise_for[(Network.EVM, 1)] = MissingApiKeyError("no key")
+    result = find_deposit(HASH, expect("USDT-TRON", TRON_RECIPIENT, "1"), lookup=lookup)
+
+    internal = explain_deposit(result, "en").internal
+
+    assert "Other networks were not checked: no Etherscan key configured." in internal
+    # The client text is still the plain not-found text for the networks that were checked.
+    assert explain_deposit(result, "en").scenario is Scenario.NOT_FOUND
+
+
+def test_internal_summary_has_no_unchecked_line_after_a_full_search() -> None:
+    result = find_deposit(HASH, expect("USDT-TRON", TRON_RECIPIENT, "1"), lookup=Lookup())
+    assert "not checked" not in explain_deposit(result, "en").internal

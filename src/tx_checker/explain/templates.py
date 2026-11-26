@@ -392,6 +392,7 @@ DEPOSIT_INTERNAL: dict[str, Any] = {
         "provider_error": "provider error",
         "invalid_input": "invalid input",
     },
+    "unchecked": "Other networks were not checked: {reason}.",
     "similar_address": "address looks similar to the expected one, possible address poisoning",
     "sent_as": "sent as {symbol}, counts as {ticker}",
 }

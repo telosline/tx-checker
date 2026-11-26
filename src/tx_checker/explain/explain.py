@@ -489,12 +489,19 @@ def deposit_internal_summary(result: DepositResult) -> str:
         f"Expected: {_plain(result.expected.amount)} {result.expected.asset.name} "
         f"to {result.expected.address}",
         _found_line(result),
+        _unchecked_line(result),
         f"Note: {DEPOSIT_INTERNAL['similar_address']}" if result.similar_address else "",
         _status_line(report),
         _notes_line(report),
         f"Link: {report.explorer_url}" if report.explorer_url else "",
     ]
     return "\n".join(line for line in lines if line)
+
+
+def _unchecked_line(result: DepositResult) -> str:
+    if result.unchecked_reason is None:
+        return ""
+    return DEPOSIT_INTERNAL["unchecked"].format(reason=result.unchecked_reason)
 
 
 def _verdict_line(result: DepositResult) -> str:

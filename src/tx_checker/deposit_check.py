@@ -107,6 +107,8 @@ class DepositResult:
     similar_address: bool = False
     # Not found on the networks that were checked, and the search stopped before the others.
     search_stopped: bool = False
+    # Why the other networks were not searched, when that is a setup problem and not a limit.
+    unchecked_reason: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """JSON-friendly dict, like `TxReport.to_dict`."""
@@ -346,12 +348,7 @@ def find_deposit(
 
     assert first is not None  # the plan is never empty and the first lookup returned or raised
     first.networks_checked = looked
-    if key_missing:
-        first.message = (
-            f"Not found on {', '.join(looked)}. The other networks were not checked because "
-            "no Etherscan key is configured."
-        )
-    elif stopped:
+    if stopped:
         first.message = (
             f"Not found on {', '.join(looked)}. The other networks could not be checked right now."
         )
@@ -359,6 +356,8 @@ def find_deposit(
         first.message = f"Not found on {', '.join(looked)}. All of them were checked."
     result = check_deposit(first, expected)
     result.search_stopped = stopped
+    if key_missing:
+        result.unchecked_reason = "no Etherscan key configured"
     return result
 
 

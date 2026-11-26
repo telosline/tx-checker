@@ -787,7 +787,8 @@ def test_a_missing_key_only_stops_the_extra_search() -> None:
     assert lookup.calls == [(TRON, None), (EVM, 1)]
     assert result.verdict is Verdict.INCONCLUSIVE
     assert result.report.networks_checked == ["TRON"]
-    assert "no Etherscan key" in (result.report.message or "")
+    assert result.unchecked_reason == "no Etherscan key configured"
+    assert not result.search_stopped
 
 
 def test_a_refused_first_lookup_is_raised() -> None:
