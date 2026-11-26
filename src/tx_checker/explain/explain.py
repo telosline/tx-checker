@@ -365,6 +365,7 @@ class DepositScenario(StrEnum):
     WRONG_ADDRESS = "wrong_address"
     AMOUNT_LOWER = "amount_lower"
     AMOUNT_HIGHER = "amount_higher"
+    SEARCH_STOPPED = "search_stopped"
 
 
 @dataclass(frozen=True)
@@ -403,6 +404,8 @@ def pick_deposit_scenario(result: DepositResult) -> DepositScenario | Scenario:
             return DepositScenario.WAITING
         case Verdict.MISMATCH if result.reasons[0] is not Reason.TX_FAILED:
             return _REASON_SCENARIOS[result.reasons[0]]
+        case Verdict.INCONCLUSIVE if result.search_stopped:
+            return DepositScenario.SEARCH_STOPPED
     # A failed transaction and every inconclusive result are explained as the transaction itself.
     return pick_scenario(result.report)
 
@@ -445,6 +448,7 @@ def _deposit_values(
         "similar_line": snippets["similar_line"] if result.similar_address else "",
         "sent_line": _sent_line(result.sent_instead, snippets),
         "warning": _warning(report, base, report.chain_name or ""),
+        "not_found_line": _not_found_line(report, base["snippets"]),
     }
     if scenario is DepositScenario.WRONG_ADDRESS and result.similar_address:
         # The hint about similar addresses matters more, and the text stays within 5 sentences.
@@ -495,9 +499,9 @@ def deposit_internal_summary(result: DepositResult) -> str:
 
 def _verdict_line(result: DepositResult) -> str:
     labels = DEPOSIT_INTERNAL["reasons"]
+    report = result.report
     match result.verdict:
         case Verdict.WAITING:
-            report = result.report
             detail = (
                 f"{DEPOSIT_INTERNAL['waiting']}: {report.confirmations}/"
                 f"{report.required_confirmations}"
@@ -505,7 +509,8 @@ def _verdict_line(result: DepositResult) -> str:
         case Verdict.MISMATCH:
             detail = "; ".join(_reason_text(result, reason, labels) for reason in result.reasons)
         case Verdict.INCONCLUSIVE:
-            detail = DEPOSIT_INTERNAL["inconclusive"][_inconclusive_key(result.report.status)]
+            key = "search_stopped" if result.search_stopped else _inconclusive_key(report.status)
+            detail = DEPOSIT_INTERNAL["inconclusive"][key]
         case _:
             return "Deposit check: MATCH"
     return f"Deposit check: {result.verdict.name} ({detail})"

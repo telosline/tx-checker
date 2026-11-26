@@ -50,6 +50,20 @@ def run(report: TxReport, expected: Expected) -> DepositResult:
     return check_deposit(report, expected)
 
 
+def search_stopped() -> DepositResult:
+    report = TxReport(
+        hash=HASH,
+        status=Status.NOT_FOUND,
+        network=Network.EVM,
+        chain_name="Ethereum",
+        explorer_url="https://etherscan.io/tx/0x" + HASH,
+        networks_checked=["Ethereum", "Polygon"],
+    )
+    result = run(report, expect("USDT-ETHEREUM", ETH_RECIPIENT, "1"))
+    result.search_stopped = True
+    return result
+
+
 Case = Callable[[], DepositResult]
 
 CASES: dict[str, tuple[Case, DepositScenario | Scenario]] = {
@@ -116,6 +130,7 @@ CASES: dict[str, tuple[Case, DepositScenario | Scenario]] = {
         lambda: run(tron_report("usdt_transfer"), expect("USDT-TRON", TRON_RECIPIENT, "1000")),
         DepositScenario.AMOUNT_HIGHER,
     ),
+    "search_stopped": (search_stopped, DepositScenario.SEARCH_STOPPED),
     "failed": (
         lambda: run(
             tron_report("failed_out_of_energy"),
@@ -181,6 +196,7 @@ NEXT_STEP = {
         DepositScenario.WRONG_ADDRESS: "compare both addresses character by character.",
         DepositScenario.AMOUNT_LOWER: "entered for the withdrawal.",
         DepositScenario.AMOUNT_HIGHER: "expected amount was entered correctly.",
+        DepositScenario.SEARCH_STOPPED: "Please try again a little later.",
     },
     "uk": {
         DepositScenario.MATCH: "залежить від платформи-отримувача.",
@@ -190,6 +206,7 @@ NEXT_STEP = {
         DepositScenario.WRONG_ADDRESS: "порівняйте обидві адреси символ за символом.",
         DepositScenario.AMOUNT_LOWER: "вказано для виведення.",
         DepositScenario.AMOUNT_HIGHER: "чи правильно вказано очікувану суму.",
+        DepositScenario.SEARCH_STOPPED: "спробуйте ще раз трохи пізніше.",
     },
     "ru": {
         DepositScenario.MATCH: "зависит от платформы-получателя.",
@@ -199,6 +216,7 @@ NEXT_STEP = {
         DepositScenario.WRONG_ADDRESS: "сравните оба адреса символ за символом.",
         DepositScenario.AMOUNT_LOWER: "указана для вывода.",
         DepositScenario.AMOUNT_HIGHER: "правильно ли указана ожидаемая сумма.",
+        DepositScenario.SEARCH_STOPPED: "повторите попытку чуть позже.",
     },
 }
 

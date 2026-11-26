@@ -387,6 +387,7 @@ DEPOSIT_INTERNAL: dict[str, Any] = {
     "waiting": "matches, not final yet",
     "inconclusive": {
         "not_found": "not found",
+        "search_stopped": "not found on the networks checked, the search stopped early",
         "pending": "not in a block yet, nothing to compare",
         "provider_error": "provider error",
         "invalid_input": "invalid input",
@@ -450,6 +451,11 @@ DEPOSIT_TEMPLATES: dict[str, dict[str, Any]] = {
                 "the expected address, which is more than the expected {expected_amount}.",
                 "{warning}",
                 "Please check whether the expected amount was entered correctly.",
+            ],
+            "search_stopped": [
+                "{not_found_line}",
+                "The other networks could not be checked right now.",
+                "Please try again a little later.",
             ],
         },
         "snippets": {
@@ -518,6 +524,11 @@ DEPOSIT_TEMPLATES: dict[str, dict[str, Any]] = {
                 "{warning}",
                 "Будь ласка, перевірте, чи правильно вказано очікувану суму.",
             ],
+            "search_stopped": [
+                "{not_found_line}",
+                "Інші мережі наразі не вдалося перевірити.",
+                "Будь ласка, спробуйте ще раз трохи пізніше.",
+            ],
         },
         "snippets": {
             "details_match": "Вона відповідає очікуваному депозиту: {amount} надіслано на адресу "
@@ -584,6 +595,11 @@ DEPOSIT_TEMPLATES: dict[str, dict[str, Any]] = {
                 "{amount}, что больше ожидаемых {expected_amount}.",
                 "{warning}",
                 "Пожалуйста, проверьте, правильно ли указана ожидаемая сумма.",
+            ],
+            "search_stopped": [
+                "{not_found_line}",
+                "Остальные сети сейчас проверить не удалось.",
+                "Пожалуйста, повторите попытку чуть позже.",
             ],
         },
         "snippets": {
