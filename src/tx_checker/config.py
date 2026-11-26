@@ -102,6 +102,13 @@ _TOKEN_ROWS: tuple[tuple[int, str, Token], ...] = (
     (42161, "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9", Token("USD₮0", 6, asset="USDT")),
     (10, "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85", Token("USDC", 6)),
     (8453, "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", Token("USDC", 6)),
+    # BNB Smart Chain: these Binance-Peg tokens use 18 decimals, not 6 like on Ethereum.
+    (
+        56,
+        "0x55d398326f99059fF775485246999027B3197955",
+        Token("USDT", 18, explorer_symbol="BSC-USD"),
+    ),
+    (56, "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d", Token("USDC", 18)),
 )
 
 TOKENS: dict[tuple[int, str], Token] = {

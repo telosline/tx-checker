@@ -99,6 +99,36 @@ def test_usdt_transfer() -> None:
     assert report.warnings == []
 
 
+@pytest.mark.parametrize(
+    ("contract", "symbol"),
+    [
+        ("0x55d398326f99059ff775485246999027b3197955", "USDT"),
+        ("0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d", "USDC"),
+    ],
+)
+def test_bnb_chain_tokens_scale_by_18_decimals(contract: str, symbol: str) -> None:
+    raw = fetch("usdt_transfer")
+    assert raw is not None and raw.receipt is not None
+    log = {
+        "address": contract,
+        "topics": [
+            TRANSFER_TOPIC,
+            "0x" + "0" * 24 + "11" * 20,
+            "0x" + "0" * 24 + "22" * 20,
+        ],
+        # 1.5 tokens with 18 decimals. With 6 decimals this would read as 1500000000000.
+        "data": hex(1_500_000_000_000_000_000),
+    }
+    bsc_raw = replace(raw, receipt={**raw.receipt, "logs": [log]})
+    report = analyze_evm(bsc_raw, get_chain(56))
+    assert len(report.token_transfers) == 1
+    transfer = report.token_transfers[0]
+    assert transfer.token_symbol == symbol
+    assert transfer.decimals == 18
+    assert transfer.amount == Decimal("1.5")
+    assert all(w.code is not WarningCode.UNKNOWN_TOKEN for w in report.warnings)
+
+
 def test_usdt_transfer_fee_math_is_exact() -> None:
     fee = report_for("usdt_transfer").fee
     assert fee == EvmFee(
