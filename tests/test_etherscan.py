@@ -101,6 +101,14 @@ def test_retries_429_then_succeeds() -> None:
 
 
 @respx.mock
+def test_every_attempt_is_reported_including_retries() -> None:
+    respx.get(BASE_URL).mock(side_effect=[httpx.Response(429), httpx.Response(500), rpc(None)])
+    seen: list[str] = []
+    assert make_client(on_request=seen.append).fetch(HASH, 1) is None
+    assert seen == ["etherscan"] * 3
+
+
+@respx.mock
 def test_gives_up_after_repeated_429() -> None:
     route = respx.get(BASE_URL).mock(return_value=httpx.Response(429))
     with pytest.raises(RateLimitedError):

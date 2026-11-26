@@ -10,10 +10,11 @@ from collections import OrderedDict, deque
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Any
+from typing import Any, Protocol
 
 from tx_checker import config
 from tx_checker.check import check
+from tx_checker.deposit_check import DepositResult, Expected, LookupStoppedError, find_deposit
 from tx_checker.detect import Detection, detect
 from tx_checker.models import Network, Status, TxReport
 
@@ -25,6 +26,13 @@ MINUTE = 60.0
 DAY = 24 * 60 * 60.0
 
 
+@dataclass
+class _Event:
+    cost: int
+    at: float
+    expired: bool = False
+
+
 class RateWindow:
     """Sliding window: at most `limit` units in the last `seconds` seconds."""
 
@@ -32,16 +40,18 @@ class RateWindow:
         self._limit = limit
         self._seconds = seconds
         self._clock = clock
-        self._events: deque[tuple[float, int]] = deque()
+        self._events: deque[_Event] = deque()
         self._used = 0
 
     def has_room(self, cost: int = 1) -> bool:
         self._expire()
         return self._used + cost <= self._limit
 
-    def add(self, cost: int = 1) -> None:
-        self._events.append((self._clock(), cost))
+    def add(self, cost: int = 1) -> _Event:
+        event = _Event(cost, self._clock())
+        self._events.append(event)
         self._used += cost
+        return event
 
     def try_acquire(self, cost: int = 1) -> bool:
         if not self.has_room(cost):
@@ -49,10 +59,39 @@ class RateWindow:
         self.add(cost)
         return True
 
+    def resize(self, event: _Event, cost: int) -> None:
+        """Change what an earlier `add` took. An event that already left the window is gone."""
+        self._expire()
+        if event.expired:
+            return
+        self._used += cost - event.cost
+        event.cost = cost
+
     def _expire(self) -> None:
         cutoff = self._clock() - self._seconds
-        while self._events and self._events[0][0] <= cutoff:
-            self._used -= self._events.popleft()[1]
+        while self._events and self._events[0].at <= cutoff:
+            event = self._events.popleft()
+            event.expired = True
+            self._used -= event.cost
+
+
+class Reservation:
+    """Calls taken up front from the provider budgets. `settle` makes them match what was used."""
+
+    def __init__(
+        self,
+        taken: dict[str, list[tuple[RateWindow, _Event]]],
+        lock: threading.Lock,
+    ) -> None:
+        self._taken = taken
+        self._lock = lock
+
+    def settle(self, used: Mapping[str, int]) -> None:
+        """Refund what was reserved but not used. Calls beyond the reservation are charged."""
+        with self._lock:
+            for name, entries in self._taken.items():
+                for window, event in entries:
+                    window.resize(event, used.get(name, 0))
 
 
 class DemoBudget:
@@ -74,16 +113,20 @@ class DemoBudget:
         }
         self._lock = threading.Lock()
 
-    def try_spend(self, costs: Mapping[str, int]) -> bool:
+    def reserve(self, costs: Mapping[str, int]) -> Reservation | None:
         """Take the calls from every provider named, or from none if any of them is out."""
         with self._lock:
-            windows = [(self._windows[name], cost) for name, cost in costs.items()]
-            if not all(w.has_room(cost) for pair, cost in windows for w in pair):
-                return False
-            for pair, cost in windows:
-                for window in pair:
-                    window.add(cost)
-            return True
+            windows = [(name, self._windows[name], cost) for name, cost in costs.items()]
+            if not all(w.has_room(cost) for _, pair, cost in windows for w in pair):
+                return None
+            taken = {
+                name: [(window, window.add(cost)) for window in pair]
+                for name, pair, cost in windows
+            }
+            return Reservation(taken, self._lock)
+
+    def try_spend(self, costs: Mapping[str, int]) -> bool:
+        return self.reserve(costs) is not None
 
 
 class TtlCache:
@@ -133,6 +176,7 @@ class GuardResult:
     outcome: Outcome
     report: TxReport | None = None
     cached: bool = False
+    deposit: DepositResult | None = None
 
 
 def new_session_window(clock: Clock = time.monotonic) -> RateWindow:
@@ -166,6 +210,30 @@ def cache_seconds(report: TxReport) -> float | None:
     return None
 
 
+class SessionGate(Protocol):
+    """What a lookup needs from the session limit: ask for room, then take it."""
+
+    def has_room(self) -> bool: ...
+
+    def add(self) -> object: ...
+
+
+class _OncePerSearch:
+    """A deposit search is one lookup for the visitor, however many networks it tries."""
+
+    def __init__(self, session: RateWindow) -> None:
+        self._session = session
+        self._charged = False
+
+    def has_room(self) -> bool:
+        return self._charged or self._session.has_room()
+
+    def add(self) -> None:
+        if not self._charged:
+            self._session.add()
+            self._charged = True
+
+
 def guarded_check(
     raw_input: str,
     *,
@@ -177,13 +245,69 @@ def guarded_check(
     lookup: Callable[..., TxReport] = check,
 ) -> GuardResult:
     """Validate, reuse a cached result, then spend limits and only then call the providers."""
+    return _guarded_step(
+        raw_input,
+        shared=shared,
+        session=session,
+        network=network,
+        chain_id=chain_id,
+        required_confirmations=required_confirmations,
+        lookup=lookup,
+    )
 
-    def run() -> TxReport:
+
+def guarded_deposit(
+    raw_input: str,
+    expected: Expected,
+    *,
+    shared: SharedGuard,
+    session: RateWindow,
+    required_confirmations: int | None = None,
+    lookup: Callable[..., TxReport] = check,
+) -> GuardResult:
+    """A deposit check where every provider call of the search goes through the same limits.
+
+    The session limit is charged once per search. A search that cannot start is answered like
+    a refused lookup. One that runs out of budget half way stops and reports what it checked.
+    """
+    gate = _OncePerSearch(session)
+    refused: list[Outcome] = []
+
+    def step(raw: str, **options: Any) -> TxReport:
+        result = _guarded_step(raw, shared=shared, session=gate, lookup=lookup, **options)
+        if result.outcome is not Outcome.OK or result.report is None:
+            refused.append(result.outcome)
+            raise LookupStoppedError
+        return result.report
+
+    try:
+        deposit = find_deposit(
+            raw_input, expected, required_confirmations=required_confirmations, lookup=step
+        )
+    except LookupStoppedError:
+        return GuardResult(refused[0])
+    return GuardResult(Outcome.OK, deposit=deposit)
+
+
+def _guarded_step(
+    raw_input: str,
+    *,
+    shared: SharedGuard,
+    session: SessionGate,
+    network: Network | None = None,
+    chain_id: int | None = None,
+    required_confirmations: int | None = None,
+    lookup: Callable[..., TxReport],
+) -> GuardResult:
+    """One provider lookup: cache, session limit, budget reservation, call, settle."""
+
+    def run(**extra: Any) -> TxReport:
         return lookup(
             raw_input,
             network=network,
             chain_id=chain_id,
             required_confirmations=required_confirmations,
+            **extra,
         )
 
     detection = detect(raw_input, _effective_network(network, chain_id))
@@ -206,11 +330,22 @@ def guarded_check(
 
     if not session.has_room():
         return GuardResult(Outcome.SESSION_LIMIT)
-    if not shared.budget.try_spend(estimate_calls(detection)):
+    # Reserve the worst case, then give back what the lookup did not need: a hash that is
+    # not found costs one call, not five.
+    reservation = shared.budget.reserve(estimate_calls(detection))
+    if reservation is None:
         return GuardResult(Outcome.BUSY)
     session.add()
 
-    report = run()
+    used: dict[str, int] = {}
+
+    def count(provider: str) -> None:
+        used[provider] = used.get(provider, 0) + 1
+
+    try:
+        report = run(on_request=count)
+    finally:
+        reservation.settle(used)
     seconds = cache_seconds(report)
     if seconds is not None:
         shared.cache.set(key, report, seconds)

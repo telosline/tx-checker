@@ -1,10 +1,13 @@
 import threading
 from typing import Any
 
+import httpx
 import pytest
+import respx
 
 from tx_checker import config
 from tx_checker.config import MissingApiKeyError
+from tx_checker.deposit_check import parse_expected
 from tx_checker.detect import detect
 from tx_checker.guard import (
     ETHERSCAN,
@@ -17,9 +20,12 @@ from tx_checker.guard import (
     cache_seconds,
     estimate_calls,
     guarded_check,
+    guarded_deposit,
     new_session_window,
 )
 from tx_checker.models import Network, Status, TxReport
+from tx_checker.providers.etherscan import BASE_URL
+from tx_checker.providers.tronscan import BASE_URL as TRONSCAN_URL
 
 
 class Clock:
@@ -42,14 +48,26 @@ def evm_hash(n: int) -> str:
 
 
 class FakeLookup:
-    """Stands in for check(): counts calls and returns a settled success."""
+    """Stands in for check(): counts calls and returns a settled success.
 
-    def __init__(self, status: Status = Status.SUCCESS) -> None:
+    It reports as many provider requests as the guard reserved, unless told otherwise.
+    """
+
+    def __init__(
+        self, status: Status = Status.SUCCESS, requests: dict[str, int] | None = None
+    ) -> None:
         self.calls: list[tuple[str, dict[str, Any]]] = []
         self.status = status
+        self.requests = requests
 
     def __call__(self, raw: str, **kwargs: Any) -> TxReport:
+        on_request = kwargs.pop("on_request", None)
         self.calls.append((raw, kwargs))
+        if on_request:
+            requests = self.requests or estimate_calls(detect(raw, kwargs["network"]))
+            for provider, count in requests.items():
+                for _ in range(count):
+                    on_request(provider)
         return TxReport(hash=raw, status=self.status, confirmations=100, required_confirmations=12)
 
 
@@ -385,3 +403,161 @@ def test_demo_lists_only_free_tier_chains() -> None:
 def test_limits_are_the_agreed_example_values() -> None:
     assert config.SESSION_LOOKUPS_PER_MINUTE == 10
     assert config.PROVIDER_CALLS_PER_DAY == 5000
+
+
+def room(budget: DemoBudget, provider: str, limit: int) -> int:
+    """How many calls the provider has left, found by taking them."""
+    left = 0
+    while left < limit and budget.try_spend({provider: 1}):
+        left += 1
+    return left
+
+
+def test_a_reservation_gives_back_what_was_not_used() -> None:
+    budget = DemoBudget(per_minute=10, per_day=100)
+    reservation = budget.reserve({ETHERSCAN: 5})
+    assert reservation is not None
+    reservation.settle({ETHERSCAN: 1})
+    assert room(budget, ETHERSCAN, 10) == 9
+
+
+def test_a_reservation_charges_calls_beyond_the_estimate() -> None:
+    budget = DemoBudget(per_minute=10, per_day=100)
+    reservation = budget.reserve({ETHERSCAN: 1})
+    assert reservation is not None
+    reservation.settle({ETHERSCAN: 3})
+    assert room(budget, ETHERSCAN, 10) == 7
+
+
+def test_settling_a_reservation_that_already_expired_changes_nothing() -> None:
+    clock = Clock()
+    budget = DemoBudget(per_minute=10, per_day=100, clock=clock)
+    reservation = budget.reserve({ETHERSCAN: 5})
+    assert reservation is not None
+    clock.advance(61)
+    reservation.settle({ETHERSCAN: 0})
+    assert room(budget, ETHERSCAN, 10) == 10
+
+
+def test_guarded_check_charges_the_calls_that_were_made() -> None:
+    # Each lookup needs 5 free calls to start, but only the 1 it makes stays spent.
+    shared, session = make(Clock(), per_minute=9)
+    lookup = FakeLookup(requests={ETHERSCAN: 1})
+    outcomes = [
+        guarded_check(evm_hash(n), shared=shared, session=new_session_window(), lookup=lookup)
+        for n in range(5)
+    ]
+    assert [o.outcome for o in outcomes] == [Outcome.OK] * 5
+    assert guarded_check(evm_hash(9), shared=shared, session=session, lookup=lookup).outcome is (
+        Outcome.BUSY
+    )
+
+
+def test_a_lookup_that_fails_before_any_call_gets_its_reservation_back() -> None:
+    shared, session = make(Clock(), per_minute=5)
+
+    def no_key(raw: str, **kwargs: Any) -> TxReport:
+        raise MissingApiKeyError("ETHERSCAN_API_KEY is not set")
+
+    with pytest.raises(MissingApiKeyError):
+        guarded_check(evm_hash(1), shared=shared, session=session, lookup=no_key)
+    assert room(shared.budget, ETHERSCAN, 5) == 5
+
+
+@pytest.fixture
+def keys(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ETHERSCAN_API_KEY", "TESTKEY")
+    monkeypatch.setenv("TRONSCAN_API_KEY", "TESTKEY")
+
+
+def etherscan_misses() -> respx.Route:
+    return respx.get(BASE_URL).mock(
+        return_value=httpx.Response(200, json={"jsonrpc": "2.0", "id": 1, "result": None})
+    )
+
+
+@respx.mock
+@pytest.mark.usefixtures("keys")
+def test_a_miss_on_one_chain_costs_one_etherscan_call() -> None:
+    route = etherscan_misses()
+    shared, session = make(Clock(), per_minute=20)
+
+    result = guarded_check(evm_hash(1), shared=shared, session=session, chain_id=137)
+
+    assert result.report is not None and result.report.status is Status.NOT_FOUND
+    assert route.call_count == 1
+    assert room(shared.budget, ETHERSCAN, 20) == 19
+
+
+@respx.mock
+@pytest.mark.usefixtures("keys")
+def test_a_deposit_search_that_misses_everywhere_costs_one_call_per_chain() -> None:
+    route = etherscan_misses()
+    shared, session = make(Clock(), per_minute=20)
+    expected = parse_expected("0x" + "ab" * 20, "10", "USDT-ETHEREUM")
+
+    result = guarded_deposit(evm_hash(1), expected, shared=shared, session=session)
+
+    assert result.deposit is not None
+    assert result.deposit.report.networks_checked == ["Ethereum", "Polygon", "Arbitrum One"]
+    assert route.call_count == 3
+    assert room(shared.budget, ETHERSCAN, 20) == 17
+
+
+@respx.mock
+@pytest.mark.usefixtures("keys")
+def test_a_bare_hash_search_misses_on_tron_then_costs_one_call_per_evm_chain() -> None:
+    etherscan = etherscan_misses()
+    tronscan = respx.get(f"{TRONSCAN_URL}/transaction-info").mock(
+        return_value=httpx.Response(200, json={})
+    )
+    shared, session = make(Clock(), per_minute=20)
+    expected = parse_expected("0x" + "ab" * 20, "10", "USDT-ETHEREUM")
+
+    result = guarded_deposit(tron_hash(1), expected, shared=shared, session=session)
+
+    assert result.deposit is not None
+    assert (tronscan.call_count, etherscan.call_count) == (1, 3)
+    assert room(shared.budget, TRONSCAN, 20) == 19
+    assert room(shared.budget, ETHERSCAN, 20) == 17
+
+
+def test_one_deposit_search_takes_one_session_slot() -> None:
+    shared, session = make(Clock())
+    expected = parse_expected("0x" + "ab" * 20, "10", "USDT-ETHEREUM")
+    lookup = FakeLookup(Status.NOT_FOUND, requests={ETHERSCAN: 1})
+
+    guarded_deposit(evm_hash(1), expected, shared=shared, session=session, lookup=lookup)
+
+    assert len(lookup.calls) == 3
+    taken = 0
+    while session.has_room():
+        session.add()
+        taken += 1
+    assert taken == config.SESSION_LOOKUPS_PER_MINUTE - 1
+
+
+def test_a_deposit_search_that_cannot_start_is_refused_as_a_whole() -> None:
+    shared, session = make(Clock(), per_minute=4)
+    expected = parse_expected("0x" + "ab" * 20, "10", "USDT-ETHEREUM")
+    lookup = FakeLookup()
+
+    result = guarded_deposit(evm_hash(1), expected, shared=shared, session=session, lookup=lookup)
+
+    assert result.outcome is Outcome.BUSY
+    assert result.deposit is None
+    assert lookup.calls == []
+
+
+def test_a_search_that_runs_out_of_budget_reports_what_it_checked() -> None:
+    # The first step reserves 5 and uses 4. A second reservation of 5 no longer fits.
+    shared, session = make(Clock(), per_minute=5)
+    expected = parse_expected("0x" + "ab" * 20, "10", "USDT-ETHEREUM")
+    lookup = FakeLookup(Status.NOT_FOUND, requests={ETHERSCAN: 4})
+
+    result = guarded_deposit(evm_hash(1), expected, shared=shared, session=session, lookup=lookup)
+
+    assert result.outcome is Outcome.OK
+    assert result.deposit is not None
+    assert result.deposit.search_stopped
+    assert len(result.deposit.report.networks_checked) == 1

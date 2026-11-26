@@ -27,12 +27,16 @@ class JsonApiClient:
         retries: int = 2,
         backoff: float = 1.0,
         sleep: Callable[[float], None] = time.sleep,
+        on_request: Callable[[str], None] | None = None,
     ) -> None:
         self._http = http or httpx.Client(timeout=10.0)
         self._owns_http = http is None
         self._retries = retries
         self._backoff = backoff
         self._sleep = sleep
+        # Called with the lowercase provider name for every HTTP attempt, retries included,
+        # so the demo can charge its budget for the calls that were really made.
+        self._on_request = on_request
 
     def close(self) -> None:
         if self._owns_http:
@@ -71,6 +75,8 @@ class JsonApiClient:
         # The exception is built outside the `except` block so no httpx object with the
         # URL stays attached to it.
         failure = None
+        if self._on_request:
+            self._on_request(self.provider.lower())
         try:
             response = self._http.get(url, params=params, headers=headers)
         except httpx.HTTPError as exc:

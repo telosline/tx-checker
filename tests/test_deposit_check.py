@@ -16,6 +16,7 @@ from tx_checker.deposit_check import (
     DepositInputError,
     DepositResult,
     Expected,
+    LookupStoppedError,
     Reason,
     Verdict,
     check_deposit,
@@ -787,6 +788,29 @@ def test_a_missing_key_only_stops_the_extra_search() -> None:
     assert result.verdict is Verdict.INCONCLUSIVE
     assert result.report.networks_checked == ["TRON"]
     assert "no Etherscan key" in (result.report.message or "")
+
+
+def test_a_refused_first_lookup_is_raised() -> None:
+    lookup = Lookup()
+    lookup.raise_for[(EVM, 1)] = LookupStoppedError()
+    with pytest.raises(LookupStoppedError):
+        find_deposit(EVM_HASH, expect("ETH", ETH_RECIPIENT, "1"), lookup=lookup)
+
+
+def test_a_search_stopped_half_way_keeps_what_it_found_out() -> None:
+    lookup = Lookup()
+    lookup.raise_for[(EVM, 137)] = LookupStoppedError()
+    result = find_deposit(EVM_HASH, expect("ETH", ETH_RECIPIENT, "1"), lookup=lookup)
+    assert lookup.calls == [(EVM, 1), (EVM, 137)]
+    assert result.verdict is Verdict.INCONCLUSIVE
+    assert result.search_stopped
+    assert result.report.networks_checked == ["Ethereum"]
+    assert "could not be checked right now" in (result.report.message or "")
+
+
+def test_a_complete_search_is_not_marked_as_stopped() -> None:
+    result = find_deposit(EVM_HASH, expect("ETH", ETH_RECIPIENT, "1"), lookup=Lookup())
+    assert not result.search_stopped
 
 
 def test_a_hit_on_tron_for_a_tron_asset_is_compared_directly() -> None:

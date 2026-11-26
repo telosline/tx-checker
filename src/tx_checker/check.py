@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Callable
 
 from tx_checker.analyze.evm import analyze_evm
 from tx_checker.analyze.tron import analyze_tron
@@ -33,10 +34,12 @@ def check(
     required_confirmations: int | None = None,
     etherscan: EtherscanClient | None = None,
     tronscan: TronscanClient | None = None,
+    on_request: Callable[[str], None] | None = None,
 ) -> TxReport:
     """Check one transaction. Bad input and provider problems come back as a report.
 
     A missing API key raises MissingApiKeyError: it is a setup problem, not a result.
+    `on_request` is told about every HTTP request the default clients make.
     """
     if chain_id is not None:
         if network is Network.TRON:
@@ -46,7 +49,7 @@ def check(
     if not detection.ok or detection.tx_hash is None:
         return _invalid(raw_input, detection.error or "Unrecognized input.")
 
-    clients = _Clients(etherscan, tronscan)
+    clients = _Clients(etherscan, tronscan, on_request)
     try:
         if detection.network is Network.TRON:
             return _check_tron(detection, required_confirmations, clients)
@@ -58,20 +61,26 @@ def check(
 class _Clients:
     """Provider clients, created on first use so each key is only needed when its network is."""
 
-    def __init__(self, etherscan: EtherscanClient | None, tronscan: TronscanClient | None) -> None:
+    def __init__(
+        self,
+        etherscan: EtherscanClient | None,
+        tronscan: TronscanClient | None,
+        on_request: Callable[[str], None] | None,
+    ) -> None:
         self._etherscan = etherscan
         self._tronscan = tronscan
+        self._on_request = on_request
         self._owned: list[EtherscanClient | TronscanClient] = []
 
     def evm(self) -> EtherscanClient:
         if self._etherscan is None:
-            self._etherscan = EtherscanClient(load_etherscan_key())
+            self._etherscan = EtherscanClient(load_etherscan_key(), on_request=self._on_request)
             self._owned.append(self._etherscan)
         return self._etherscan
 
     def tron(self) -> TronscanClient:
         if self._tronscan is None:
-            self._tronscan = TronscanClient(load_tronscan_key())
+            self._tronscan = TronscanClient(load_tronscan_key(), on_request=self._on_request)
             self._owned.append(self._tronscan)
         return self._tronscan
 

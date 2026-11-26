@@ -38,6 +38,10 @@ _AMOUNT = re.compile(r"\d+(\.\d+)?")
 _MAX_ECHO = 40
 
 
+class LookupStoppedError(Exception):
+    """A lookup was refused before it started, for example because a budget ran out."""
+
+
 class DepositInputError(ValueError):
     """The expected asset, address or amount is not valid. Raised before any API call."""
 
@@ -101,6 +105,8 @@ class DepositResult:
     # WRONG_NETWORK: the chain where the hash was found.
     found_on: str | None = None
     similar_address: bool = False
+    # Not found on the networks that were checked, and the search stopped before the others.
+    search_stopped: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         """JSON-friendly dict, like `TxReport.to_dict`."""
@@ -313,6 +319,7 @@ def find_deposit(
     first: TxReport | None = None
     looked: list[str] = []
     key_missing = False
+    stopped = False
     for index, (network, chain_id) in enumerate(plan):
         try:
             report = lookup(
@@ -327,6 +334,11 @@ def find_deposit(
                 raise
             key_missing = True
             break
+        except LookupStoppedError:
+            if index == 0:
+                raise
+            stopped = True
+            break
         if report.status is not Status.NOT_FOUND:
             return check_deposit(report, expected)
         first = first or report
@@ -339,9 +351,15 @@ def find_deposit(
             f"Not found on {', '.join(looked)}. The other networks were not checked because "
             "no Etherscan key is configured."
         )
+    elif stopped:
+        first.message = (
+            f"Not found on {', '.join(looked)}. The other networks could not be checked right now."
+        )
     elif len(looked) > 1:
         first.message = f"Not found on {', '.join(looked)}. All of them were checked."
-    return check_deposit(first, expected)
+    result = check_deposit(first, expected)
+    result.search_stopped = stopped
+    return result
 
 
 def _search_plan(detection: Detection, asset: Asset) -> list[tuple[Network | None, int | None]]:
