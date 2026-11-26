@@ -283,8 +283,8 @@ def test_options_and_examples_stay_out_of_the_way(routes: Routes) -> None:
     at = new_app()
     assert at.selectbox(key="example_choice").value is None
     assert "Try an example" not in {e.label for e in at.expander}  # a closed list, not a box
-    assert [e.label for e in at.expander] == ["Options"]
-    assert not at.expander[0].proto.expanded
+    assert [e.label for e in at.expander] == ["Options", "Options"]  # one per tab
+    assert all(not e.proto.expanded for e in at.expander)
 
 
 def test_a_failed_transaction_lists_the_attempt_apart(routes: Routes) -> None:
@@ -438,3 +438,133 @@ def test_the_streamlit_config_hides_error_details() -> None:
 def test_the_secrets_file_stays_out_of_git() -> None:
     ignored = (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
     assert ".streamlit/secrets.toml" in ignored
+
+
+DEPOSIT_SUBMIT = "FormSubmitter:deposit-Check deposit"
+TRON_RECIPIENT = "THobV9PPMgzxJtrHAUNLJ88CWWLeJF5iNb"
+BARE_HASH = "ab" * 32
+
+
+def deposit(
+    at: AppTest, tx_hash: str, address: str, amount: str, asset: str = "USDT-TRON"
+) -> AppTest:
+    at.text_input(key="deposit_query").set_value(tx_hash)
+    at.text_input(key="deposit_address").set_value(address)
+    at.text_input(key="deposit_amount").set_value(amount)
+    at.selectbox(key="deposit_asset").select(asset)
+    return at.button(key=DEPOSIT_SUBMIT).click().run()
+
+
+def comparison(at: AppTest) -> dict[str, tuple[str, str, str]]:
+    frame = at.dataframe[0].value
+    return {r["Fact"]: (r["Expected"], r["Actual"], r["Result"]) for _, r in frame.iterrows()}
+
+
+def test_the_deposit_tab_offers_the_demo_assets_without_pol() -> None:
+    options = new_app().selectbox(key="deposit_asset").options
+    assert "POL" not in options
+    assert options[:2] == ["USDT-TRON", "USDC-TRON"]
+    assert {"ETH", "TRX", "USDT-POLYGON", "USDC-ARBITRUM"} <= set(options)
+
+
+def test_a_matching_deposit_shows_the_verdict_and_the_message(routes: Routes) -> None:
+    routes.tron_returns(USDT)
+    at = deposit(new_app(), USDT["hash"], TRON_RECIPIENT, "1529.315")
+    assert not at.exception
+    assert headline(at) == ":green[Match: the deposit is as expected]"
+    assert {result for *_, result in comparison(at).values()} == {"OK"}
+    assert client_box(at).startswith("The transaction on the TRON network")
+    assert routes.tron.call_count == 1
+    assert routes.evm.call_count == 0
+
+
+def test_a_lower_amount_is_a_mismatch_with_both_values_side_by_side(routes: Routes) -> None:
+    routes.tron_returns(USDT)
+    at = deposit(new_app(), USDT["hash"], TRON_RECIPIENT, "2000")
+    assert headline(at) == ":red[Mismatch: amount lower than expected]"
+    rows = comparison(at)
+    assert rows["Amount"] == ("2000 USDT", "1529.315 USDT", "Differs")
+    assert rows["Address"][2] == "OK"
+
+
+def test_a_wrong_address_shows_both_addresses_and_stops_comparing(routes: Routes) -> None:
+    routes.tron_returns(USDT)
+    other = "TKgmbuXFYn58oCrFJFFDgneWc9aRh9eSkz"
+    at = deposit(new_app(), USDT["hash"], other, "1529.315")
+    rows = comparison(at)
+    assert rows["Address"][0] == other
+    assert rows["Address"][1] == TRON_RECIPIENT
+    assert rows["Address"][2] == "Differs"
+    assert rows["Amount"][2] == "Not compared"
+
+
+def test_a_bad_expectation_is_refused_before_any_provider_call(routes: Routes) -> None:
+    at = deposit(new_app(), USDT["hash"], "not an address", "10")
+    assert [w.value for w in at.warning] == [
+        "This asset needs a TRON address (34 characters, starts with T). Please check the address."
+    ]
+    at = deposit(at, USDT["hash"], TRON_RECIPIENT, "ten")
+    assert "positive number" in at.warning[0].value
+    assert routes.tron.call_count == 0
+    assert routes.evm.call_count == 0
+    assert not at.exception
+
+
+def test_a_hash_that_is_nowhere_is_searched_on_every_free_chain(routes: Routes) -> None:
+    at = deposit(new_app(), BARE_HASH, TRON_RECIPIENT, "10")
+    assert headline(at) == ":gray[Not found: nothing to compare]"
+    assert routes.tron.call_count == 1
+    assert routes.evm.call_count == 3  # Ethereum, Polygon, Arbitrum One: one call each
+    assert "Ethereum" in client_box(at)
+    assert not at.exception
+
+
+def test_a_search_that_runs_out_of_budget_says_so_to_the_client(
+    routes: Routes, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(config, "PROVIDER_CALLS_PER_MINUTE", 6)
+    st.cache_resource.clear()
+    at = deposit(new_app(), BARE_HASH, TRON_RECIPIENT, "10")
+    assert headline(at) == ":gray[Not found on the networks checked, search incomplete]"
+    assert "could not be checked right now" in client_box(at)
+    assert "demo" not in client_box(at).lower()
+    assert routes.evm.call_count == 2
+    assert not at.exception
+
+
+def test_a_deposit_search_that_cannot_start_shows_the_busy_message(
+    routes: Routes, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(config, "PROVIDER_CALLS_PER_MINUTE", 4)
+    st.cache_resource.clear()
+    at = deposit(new_app(), EVM_HASH, "0x" + "ab" * 20, "1", "ETH")
+    assert [i.value for i in at.info] == [
+        "The demo is busy right now. Please try again in a minute."
+    ]
+    assert routes.evm.call_count == 0
+
+
+def test_the_session_limit_is_shared_and_a_search_counts_once(
+    routes: Routes, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(config, "SESSION_LOOKUPS_PER_MINUTE", 2)
+    at = deposit(new_app(), BARE_HASH, TRON_RECIPIENT, "10")  # four provider steps, one slot
+    assert not at.warning
+    at = submit(at, f"{3:064x}")
+    assert not at.warning
+    at = deposit(at, "cd" * 32, TRON_RECIPIENT, "10")
+    assert [w.value for w in at.warning] == [
+        "You have reached the limit of 2 lookups per minute. Please wait a little and try again."
+    ]
+
+
+def test_a_missing_etherscan_key_is_noted_for_the_agent(
+    routes: Routes, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("ETHERSCAN_API_KEY")
+    at = deposit(new_app(), BARE_HASH, TRON_RECIPIENT, "10")
+    summaries = [str(c.value) for c in at.code]
+    assert any(
+        "Other networks were not checked: no Etherscan key configured." in c for c in summaries
+    )
+    assert not at.exception
